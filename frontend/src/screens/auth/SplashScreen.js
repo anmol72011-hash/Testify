@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, globalStyles } from '../../styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,7 +28,7 @@ export default function SplashScreen({ navigation }) {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <View style={styles.logoCircle}>
-          <Text style={styles.logoEmoji}>🎓</Text>
+          <Ionicons name="school-outline" size={56} color={COLORS.primaryLight} />
         </View>
         <Text style={styles.appName}>TESTIFY</Text>
         <Text style={styles.tagline}>AI-Powered Learning Platform</Text>

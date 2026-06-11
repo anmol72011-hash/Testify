@@ -21,7 +21,11 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(uploadDir));
@@ -51,8 +55,8 @@ const { initializeDatabase } = require('./config/initDb');
 async function startServer() {
   try {
     await initializeDatabase();
-    app.listen(PORT, () => {
-      console.log(`🚀 TESTIFY Backend running on http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 TESTIFY Backend running on http://0.0.0.0:${PORT}`);
       console.log(`✅ Database tables initialized`);
     });
   } catch (err) {

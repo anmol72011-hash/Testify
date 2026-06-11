@@ -1,17 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
-  Alert, RefreshControl, StatusBar,
+  Alert, RefreshControl, StatusBar, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest, clearAuth } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 const STATUS_INFO = {
-  pending: { color: COLORS.textMuted, emoji: '⏳', label: 'Not Yet Assigned' },
-  assigned: { color: COLORS.warning, emoji: '📋', label: 'Test Ready!' },
-  submitted: { color: COLORS.info, emoji: '✅', label: 'Submitted' },
-  graded: { color: COLORS.success, emoji: '🏆', label: 'Results Available!' },
+  pending: { color: COLORS.textMuted, icon: 'hourglass-outline', label: 'Not Yet Assigned' },
+  assigned: { color: COLORS.warning, icon: 'clipboard-outline', label: 'Test Ready!' },
+  submitted: { color: COLORS.info, icon: 'checkmark-circle-outline', label: 'Submitted' },
+  graded: { color: COLORS.success, icon: 'trophy-outline', label: 'Results Available!' },
 };
 
 export default function StudentDashboard({ navigation, user, onLogout }) {
@@ -29,7 +42,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
       setClassroom(clsData.classroom);
       setTests(testsData.tests || []);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -40,16 +53,50 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
     fetchData();
   }, [fetchData]);
 
-  const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => { await clearAuth(); onLogout(); },
-      },
-    ]);
+  const handleLeaveClassroom = async () => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Leave this classroom? You can rejoin later with the join code.')
+      : false; // native uses showAlert below
+    if (Platform.OS === 'web' && !confirmed) return;
+    if (Platform.OS !== 'web') {
+      showAlert('Leave Classroom', 'Are you sure? You can rejoin later with the join code.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave', style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiRequest('/classrooms/leave', { method: 'DELETE' });
+              fetchData();
+            } catch (error) { showAlert('Error', error.message); }
+          },
+        },
+      ]);
+      return;
+    }
+    try {
+      await apiRequest('/classrooms/leave', { method: 'DELETE' });
+      fetchData();
+    } catch (error) {
+      window.alert(`Error: ${error.message}`);
+    }
   };
+
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) { await clearAuth(); onLogout(); }
+    } else {
+      showAlert('Logout', 'Are you sure?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => { await clearAuth(); onLogout(); },
+        },
+      ]);
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -63,7 +110,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
             <Text style={styles.headerSub}>Student Dashboard</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutIcon}>↩</Text>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -81,17 +128,24 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
           {classroom ? (
             <View style={styles.classroomCard}>
               <LinearGradient colors={['rgba(108,99,255,0.15)', 'rgba(108,99,255,0.05)']} style={styles.classroomGradient}>
-                <Text style={styles.classroomEmoji}>🏫</Text>
+                <Ionicons name="business-outline" size={48} color={COLORS.textPrimary} style={{ marginBottom: SPACING.sm }} />
                 <Text style={styles.classroomName}>{classroom.name}</Text>
-                <Text style={styles.teacherName}>👩‍🏫 {classroom.teacher_name}</Text>
+                <Text style={styles.teacherName}>
+                  <Ionicons name="person-outline" size={14} /> {classroom.teacher_name}
+                </Text>
                 <View style={styles.joinCodeBadge}>
                   <Text style={styles.joinCodeText}>{classroom.join_code}</Text>
                 </View>
+                <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveClassroom}>
+                  <Text style={styles.leaveBtnText}>
+                    <Ionicons name="exit-outline" size={14} color="#fff" /> Leave Classroom
+                  </Text>
+                </TouchableOpacity>
               </LinearGradient>
             </View>
           ) : (
             <View style={styles.noClassroomCard}>
-              <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>🔑</Text>
+              <Ionicons name="key-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.noClassroomTitle}>Not in a classroom</Text>
               <Text style={styles.noClassroomSub}>Ask your teacher for the join code</Text>
               <TouchableOpacity
@@ -111,7 +165,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
               <Text style={styles.sectionTitle}>Your Tests</Text>
               {tests.length === 0 ? (
                 <View style={styles.noTests}>
-                  <Text style={{ fontSize: 40 }}>📭</Text>
+                  <Ionicons name="mail-unread-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
                   <Text style={styles.noTestsText}>No tests assigned yet</Text>
                 </View>
               ) : (
@@ -121,7 +175,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                     <View key={test.id} style={styles.testCard}>
                       <LinearGradient colors={['rgba(108,99,255,0.08)', 'transparent']} style={styles.testCardGradient}>
                         <View style={styles.testCardHeader}>
-                          <Text style={styles.testEmoji}>{statusInfo.emoji}</Text>
+                          <Ionicons name={statusInfo.icon} size={28} color={statusInfo.color} />
                           <View style={[styles.statusPill, { backgroundColor: statusInfo.color + '22' }]}>
                             <Text style={[styles.statusPillText, { color: statusInfo.color }]}>
                               {statusInfo.label}
@@ -131,8 +185,12 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                         <Text style={styles.testTitle}>{test.note_title}</Text>
                         <Text style={styles.testClass}>{test.classroom_name}</Text>
                         <View style={styles.testMeta}>
-                          <Text style={styles.testMetaText}>⏱️ {test.timer_minutes} min</Text>
-                          <Text style={styles.testMetaText}>🏆 {test.total_marks} marks</Text>
+                          <Text style={styles.testMetaText}>
+                            <Ionicons name="time-outline" size={12} /> {test.timer_minutes} min
+                          </Text>
+                          <Text style={styles.testMetaText}>
+                            <Ionicons name="trophy-outline" size={12} /> {test.total_marks} marks
+                          </Text>
                         </View>
                         {test.status === 'assigned' && (
                           <TouchableOpacity
@@ -161,6 +219,22 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
           )}
         </ScrollView>
       )}
+
+      {/* FAB — always visible Join Classroom button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('JoinClassroom', { onJoined: fetchData })}
+        activeOpacity={0.85}
+      >
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryDark]}
+          style={styles.fabGradient}
+        >
+          <Text style={styles.fabText}>
+            <Ionicons name="key-outline" size={16} color="#fff" /> Join a Classroom
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -177,7 +251,7 @@ const styles = StyleSheet.create({
   },
   logoutIcon: { fontSize: 18, color: COLORS.textSecondary },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: SPACING.xl, paddingBottom: 80 },
+  content: { padding: SPACING.xl, paddingBottom: 120 },
   classroomCard: { borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.xl, ...SHADOWS.medium },
   classroomGradient: { padding: SPACING.xl, alignItems: 'center' },
   classroomEmoji: { fontSize: 48, marginBottom: SPACING.sm },
@@ -218,4 +292,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.success,
   },
   viewResultText: { color: COLORS.success, fontSize: 15, fontWeight: '700' },
+  leaveBtn: {
+    marginTop: SPACING.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.error,
+  },
+  leaveBtnText: { color: COLORS.error, fontSize: 13, fontWeight: '700' },
+  fab: { position: 'absolute', bottom: 30, left: SPACING.xl, right: SPACING.xl, borderRadius: RADIUS.full, overflow: 'hidden' },
+  fabGradient: { paddingVertical: SPACING.md + 2, alignItems: 'center' },
+  fabText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

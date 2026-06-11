@@ -7,6 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -38,7 +50,7 @@ export default function TakeTestScreen({ navigation, route }) {
         method: 'POST',
         body: JSON.stringify({ answers: answersArray }),
       });
-      Alert.alert(
+      showAlert(
         auto ? '⏱️ Time is Up!' : '✅ Test Submitted!',
         auto
           ? 'Your test has been auto-submitted as time ran out.'
@@ -46,7 +58,7 @@ export default function TakeTestScreen({ navigation, route }) {
         [{ text: 'OK', onPress: () => navigation.navigate('StudentDashboard') }]
       );
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
       submitted.current = false;
     } finally {
       setSubmitting(false);
@@ -61,7 +73,7 @@ export default function TakeTestScreen({ navigation, route }) {
         setQuestions(data.questions);
         setTimeLeft(data.test.timer_minutes * 60);
       } catch (error) {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message);
         navigation.goBack();
       } finally {
         setLoading(false);
@@ -89,7 +101,7 @@ export default function TakeTestScreen({ navigation, route }) {
   // Block back button
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      Alert.alert('Exit Test?', 'Going back will lose your progress.', [
+      showAlert('Exit Test?', 'Going back will lose your progress.', [
         { text: 'Stay', style: 'cancel' },
         { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
       ]);
@@ -117,7 +129,7 @@ export default function TakeTestScreen({ navigation, route }) {
   const handleSubmit = () => {
     const answered = Object.keys(answers).length;
     const total = questions.length;
-    Alert.alert(
+    showAlert(
       'Submit Test?',
       `You answered ${answered}/${total} questions. Submit now?`,
       [

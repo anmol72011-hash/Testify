@@ -7,6 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, globalStyles } from '../../styles/theme';
 import { apiRequest, saveAuth } from '../../utils/auth';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function LoginScreen({ navigation, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +26,7 @@ export default function LoginScreen({ navigation, onLogin }) {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter email and password');
+      showAlert('Error', 'Please enter email and password');
       return;
     }
     setLoading(true);
@@ -26,7 +38,7 @@ export default function LoginScreen({ navigation, onLogin }) {
       await saveAuth(data.token, data.user);
       onLogin(data.user);
     } catch (error) {
-      Alert.alert('Login Failed', error.message);
+      showAlert('Login Failed', error.message);
     } finally {
       setLoading(false);
     }

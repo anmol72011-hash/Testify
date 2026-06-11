@@ -6,7 +6,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 const STATUS_COLORS = {
   pending: COLORS.textMuted,
   assigned: COLORS.warning,
@@ -36,7 +49,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
       setNotes(notesData.notes || []);
       setTests(testsData.tests || []);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,7 +69,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
   }, [fetchData, fetchResults]);
 
   const handleAssignTests = async () => {
-    Alert.alert('Assign Tests', 'Send tests to all students?', [
+    showAlert('Assign Tests', 'Send tests to all students?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Assign',
@@ -64,10 +77,10 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           setActionLoading(true);
           try {
             const data = await apiRequest(`/tests/classroom/${classroom.id}/assign`, { method: 'POST' });
-            Alert.alert('Success', data.message);
+            showAlert('Success', data.message);
             fetchData();
           } catch (e) {
-            Alert.alert('Error', e.message);
+            showAlert('Error', e.message);
           } finally {
             setActionLoading(false);
           }
@@ -77,7 +90,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
   };
 
   const handleEvaluate = async () => {
-    Alert.alert('Evaluate Tests', 'AI will grade all submitted tests. This may take a moment.', [
+    showAlert('Evaluate Tests', 'AI will grade all submitted tests. This may take a moment.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Evaluate',
@@ -85,11 +98,11 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           setActionLoading(true);
           try {
             const data = await apiRequest(`/evaluation/classroom/${classroom.id}/evaluate`, { method: 'POST' });
-            Alert.alert('Success', data.message);
+            showAlert('Success', data.message);
             fetchData();
             fetchResults();
           } catch (e) {
-            Alert.alert('Error', e.message);
+            showAlert('Error', e.message);
           } finally {
             setActionLoading(false);
           }
@@ -99,7 +112,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
   };
 
   const handleAssignMarks = async () => {
-    Alert.alert('Publish Marks', 'Students will be able to see their results.', [
+    showAlert('Publish Marks', 'Students will be able to see their results.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Publish',
@@ -107,12 +120,30 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           setActionLoading(true);
           try {
             const data = await apiRequest(`/evaluation/classroom/${classroom.id}/assign-marks`, { method: 'POST' });
-            Alert.alert('Success', data.message);
+            showAlert('Success', data.message);
             fetchResults();
           } catch (e) {
-            Alert.alert('Error', e.message);
+            showAlert('Error', e.message);
           } finally {
             setActionLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    showAlert('Delete Note', 'Are you sure? This will also delete any tests generated from this note.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiRequest(`/notes/${noteId}`, { method: 'DELETE' });
+            fetchData();
+          } catch (e) {
+            showAlert('Error', e.message);
           }
         },
       },
@@ -138,28 +169,36 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           </TouchableOpacity>
           {notes.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>📄</Text>
+              <Ionicons name="document-text-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.emptyText}>No notes yet. Add notes for AI to create tests.</Text>
             </View>
           ) : (
             notes.map(note => (
               <View key={note.id} style={styles.noteCard}>
-                <Text style={styles.noteTypeIcon}>
-                  {note.file_type === 'pdf' ? '📕' : note.file_type === 'image' ? '🖼️' : '📝'}
-                </Text>
+                <Ionicons 
+                  name={note.file_type === 'pdf' ? 'book-outline' : note.file_type === 'image' ? 'image-outline' : 'document-outline'} 
+                  size={24} 
+                  color={COLORS.primary} 
+                  style={{ marginRight: SPACING.md }} 
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.noteTitle}>{note.title}</Text>
                   <Text style={styles.noteType}>{note.file_type.toUpperCase()}</Text>
                 </View>
+                <TouchableOpacity style={styles.deleteNoteBtn} onPress={() => handleDeleteNote(note.id)}>
+                  <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                </TouchableOpacity>
               </View>
             ))
           )}
           {notes.length > 0 && (
             <TouchableOpacity
               style={styles.generateBtn}
-              onPress={() => navigation.navigate('GenerateTests', { classroom, notes, students })}
+              onPress={() => navigation.navigate('GenerateTests', { classroom, notes, students, onGenerated: fetchData })}
             >
-              <Text style={styles.generateBtnText}>⚡ Generate Tests for Students</Text>
+              <Text style={styles.generateBtnText}>
+                <Ionicons name="flash-outline" size={18} color="#fff" /> Generate Tests for Students
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -179,27 +218,33 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           {pendingCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleAssignTests}>
               <LinearGradient colors={[COLORS.warning, '#E8962A']} style={styles.actionBtnGradient}>
-                <Text style={styles.actionBtnText}>📤 Assign Tests ({pendingCount} pending)</Text>
+                <Text style={styles.actionBtnText}>
+                  <Ionicons name="paper-plane-outline" size={18} color="#fff" /> Assign Tests ({pendingCount} pending)
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
           {submittedCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleEvaluate}>
               <LinearGradient colors={[COLORS.info, '#37B3AA']} style={styles.actionBtnGradient}>
-                <Text style={styles.actionBtnText}>🤖 Evaluate ({submittedCount} submitted)</Text>
+                <Text style={styles.actionBtnText}>
+                  <Ionicons name="hardware-chip-outline" size={18} color="#fff" /> Evaluate ({submittedCount} submitted)
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
           {gradedCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleAssignMarks}>
               <LinearGradient colors={[COLORS.success, '#30C490']} style={styles.actionBtnGradient}>
-                <Text style={styles.actionBtnText}>✅ Assign & Publish Marks</Text>
+                <Text style={styles.actionBtnText}>
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#fff" /> Assign & Publish Marks
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
           {tests.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>📋</Text>
+              <Ionicons name="clipboard-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.emptyText}>No tests generated. Add notes first, then generate tests.</Text>
             </View>
           ) : (
@@ -228,7 +273,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
         <View>
           {students.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>👥</Text>
+              <Ionicons name="people-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.emptyText}>No students enrolled. Share code: {classroom.join_code}</Text>
             </View>
           ) : (
@@ -254,7 +299,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
         <View>
           {results.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>📊</Text>
+              <Ionicons name="bar-chart-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.emptyText}>No results yet. Evaluate tests first.</Text>
             </View>
           ) : (
@@ -417,4 +462,6 @@ const styles = StyleSheet.create({
   resultPending: { fontSize: 12, color: COLORS.textMuted },
   loadingOverlay: { alignItems: 'center', paddingVertical: SPACING.lg },
   loadingText: { color: COLORS.textMuted, marginTop: SPACING.sm },
+  deleteNoteBtn: { padding: SPACING.sm },
+  deleteNoteIcon: { fontSize: 20 },
 });

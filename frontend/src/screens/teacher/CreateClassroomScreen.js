@@ -6,7 +6,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function CreateClassroomScreen({ navigation, route }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +27,7 @@ export default function CreateClassroomScreen({ navigation, route }) {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a classroom name');
+      showAlert('Error', 'Please enter a classroom name');
       return;
     }
     setLoading(true);
@@ -26,7 +39,7 @@ export default function CreateClassroomScreen({ navigation, route }) {
       setCreated(data.classroom);
       if (route.params?.onCreated) route.params.onCreated();
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -34,7 +47,7 @@ export default function CreateClassroomScreen({ navigation, route }) {
 
   const copyCode = () => {
     Clipboard.setString(created.join_code);
-    Alert.alert('Copied!', `Code "${created.join_code}" copied to clipboard`);
+    showAlert('Copied!', `Code "${created.join_code}" copied to clipboard`);
   };
 
   if (created) {
@@ -42,7 +55,7 @@ export default function CreateClassroomScreen({ navigation, route }) {
       <LinearGradient colors={['#0F0F1A', '#1A0A2E', '#0F0F1A']} style={{ flex: 1 }}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
-            <Text style={{ fontSize: 56 }}>🎉</Text>
+            <Ionicons name="sparkles-outline" size={56} color={COLORS.primaryLight} />
           </View>
           <Text style={styles.successTitle}>Classroom Created!</Text>
           <Text style={styles.successName}>{created.name}</Text>
@@ -80,7 +93,7 @@ export default function CreateClassroomScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>🏫</Text>
+            <Ionicons name="business-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
             <Text style={styles.title}>New Classroom</Text>
             <Text style={styles.subtitle}>A unique 6-character code will be auto-generated for students to join</Text>
           </View>

@@ -13,7 +13,7 @@ router.post(
   '/classroom/:classroomId',
   authenticateToken,
   requireRole('teacher'),
-  upload.single('file'),
+  upload.array('files', 10),
   async (req, res) => {
     try {
       const { classroomId } = req.params;
@@ -36,21 +36,38 @@ router.post(
       let filePath = null;
       let contentText = text_content || '';
 
-      if (req.file) {
-        filePath = req.file.filename;
-        const mimeType = req.file.mimetype;
+      if (req.files && req.files.length > 0) {
+        // Save comma separated filenames
+        filePath = req.files.map(f => f.filename).join(',');
+        
+        let allExtractedText = '';
+        let hasImage = false;
+        let hasPdf = false;
 
-        if (mimeType === 'application/pdf') {
-          fileType = 'pdf';
-          // Extract text from PDF using Gemini
-          contentText = await extractTextFromFile(req.file.path, 'pdf');
-        } else if (mimeType.startsWith('image/')) {
-          fileType = 'image';
-          // Extract text from image using Gemini Vision
-          contentText = await extractTextFromFile(req.file.path, 'image');
+        for (const file of req.files) {
+          const mimeType = file.mimetype;
+          let extracted = '';
+          
+          if (mimeType === 'application/pdf') {
+            hasPdf = true;
+            extracted = await extractTextFromFile(file.path, 'pdf');
+          } else if (mimeType.startsWith('image/')) {
+            hasImage = true;
+            extracted = await extractTextFromFile(file.path, 'image');
+          }
+          
+          if (extracted) {
+            allExtractedText += extracted + '\n\n';
+          }
         }
+        
+        if (hasPdf && !hasImage) fileType = 'pdf';
+        else if (hasImage && !hasPdf) fileType = 'image';
+        else if (hasImage && hasPdf) fileType = 'mixed';
+        
+        contentText += '\n\n' + allExtractedText;
       } else if (!text_content || text_content.trim() === '') {
-        return res.status(400).json({ error: 'Either text content or file upload is required' });
+        return res.status(400).json({ error: 'Either text content or file uploads are required' });
       }
 
       const result = await pool.query(
@@ -100,6 +117,64 @@ router.get('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get note error:', error);
     res.status(500).json({ error: 'Failed to fetch note' });
+  }
+});
+
+// DELETE /api/notes/:id — Delete a note
+router.delete('/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership via classroom
+    const note = await pool.query(
+      `SELECT n.id, n.file_path FROM notes n
+       JOIN classrooms c ON n.classroom_id = c.id
+       WHERE n.id = $1 AND c.teacher_id = $2`,
+      [id, req.user.id]
+    );
+
+    if (note.rows.length === 0) {
+      return res.status(404).json({ error: 'Note not found or access denied' });
+    }
+
+    // Begin transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Delete associated tests and questions (cascade if not set, but better explicit)
+      const tests = await client.query('SELECT id FROM tests WHERE note_id = $1', [id]);
+      for (const test of tests.rows) {
+        await client.query('DELETE FROM questions WHERE test_id = $1', [test.id]);
+        await client.query('DELETE FROM student_answers WHERE test_id = $1', [test.id]);
+        await client.query('DELETE FROM results WHERE test_id = $1', [test.id]);
+      }
+      await client.query('DELETE FROM tests WHERE note_id = $1', [id]);
+
+      // 2. Delete note
+      await client.query('DELETE FROM notes WHERE id = $1', [id]);
+
+      await client.query('COMMIT');
+
+      // 3. Delete file from disk if exists
+      const filePath = note.rows[0].file_path;
+      if (filePath) {
+        const fullPath = path.join(__dirname, '../../uploads', filePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      }
+
+      res.json({ message: 'Note deleted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Delete note error:', error);
+    res.status(500).json({ error: 'Failed to delete note' });
   }
 });
 

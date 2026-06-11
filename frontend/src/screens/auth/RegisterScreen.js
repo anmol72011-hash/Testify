@@ -7,6 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest, saveAuth } from '../../utils/auth';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function RegisterScreen({ navigation, onLogin }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -16,11 +28,11 @@ export default function RegisterScreen({ navigation, onLogin }) {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showAlert('Error', 'Password must be at least 6 characters');
       return;
     }
     setLoading(true);
@@ -32,7 +44,7 @@ export default function RegisterScreen({ navigation, onLogin }) {
       await saveAuth(data.token, data.user);
       onLogin(data.user);
     } catch (error) {
-      Alert.alert('Registration Failed', error.message);
+      showAlert('Registration Failed', error.message);
     } finally {
       setLoading(false);
     }

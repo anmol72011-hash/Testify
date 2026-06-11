@@ -6,7 +6,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function GenerateTestsScreen({ navigation, route }) {
   const { classroom, notes, students } = route.params;
   const [selectedNote, setSelectedNote] = useState(notes[0]?.id || null);
@@ -18,7 +31,7 @@ export default function GenerateTestsScreen({ navigation, route }) {
 
   const handleGenerate = async () => {
     if (!selectedNote) {
-      Alert.alert('Error', 'Please select a note to base the test on');
+      showAlert('Error', 'Please select a note to base the test on');
       return;
     }
     const num = parseInt(numQuestions);
@@ -26,15 +39,15 @@ export default function GenerateTestsScreen({ navigation, route }) {
     const marks = parseInt(marksPerQuestion);
 
     if (isNaN(num) || num < 1 || num > 50) {
-      Alert.alert('Error', 'Number of questions must be between 1 and 50');
+      showAlert('Error', 'Number of questions must be between 1 and 50');
       return;
     }
     if (isNaN(timer) || timer < 5) {
-      Alert.alert('Error', 'Timer must be at least 5 minutes');
+      showAlert('Error', 'Timer must be at least 5 minutes');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Generate Tests',
       `AI will generate ${num} unique questions for each of the ${students.length} students. This may take a few minutes.`,
       [
@@ -55,14 +68,22 @@ export default function GenerateTestsScreen({ navigation, route }) {
                 }),
               });
               setProgress(null);
-              Alert.alert(
-                'Tests Generated! 🎉',
+              showAlert(
+                'Tests Generated! Success',
                 `Successfully generated tests for ${data.generated} students.${data.errors > 0 ? `\n${data.errors} failed.` : ''}`,
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
+                [{ 
+                  text: 'OK', 
+                  onPress: () => {
+                    if (route.params?.onGenerated) {
+                      route.params.onGenerated();
+                    }
+                    navigation.goBack();
+                  }
+                }]
               );
             } catch (error) {
               setProgress(null);
-              Alert.alert('Error', error.message);
+              showAlert('Error', error.message);
             } finally {
               setLoading(false);
             }
@@ -93,9 +114,11 @@ export default function GenerateTestsScreen({ navigation, route }) {
               style={[styles.noteOption, selectedNote === note.id && styles.noteOptionSelected]}
               onPress={() => setSelectedNote(note.id)}
             >
-              <Text style={styles.noteIcon}>
-                {note.file_type === 'pdf' ? '📕' : note.file_type === 'image' ? '🖼️' : '📝'}
-              </Text>
+              <Ionicons 
+                name={note.file_type === 'pdf' ? 'book-outline' : note.file_type === 'image' ? 'image-outline' : 'document-outline'} 
+                size={22} 
+                color={COLORS.textPrimary} 
+              />
               <Text style={[styles.noteOptionText, selectedNote === note.id && { color: COLORS.primary }]}>
                 {note.title}
               </Text>
@@ -147,11 +170,21 @@ export default function GenerateTestsScreen({ navigation, route }) {
 
         {/* Summary */}
         <View style={styles.summaryBox}>
-          <Text style={styles.summaryTitle}>📊 Summary</Text>
-          <Text style={styles.summaryLine}>👥 Students: <Text style={{ color: COLORS.primary }}>{students.length}</Text></Text>
-          <Text style={styles.summaryLine}>❓ Questions each: <Text style={{ color: COLORS.primary }}>{numQuestions}</Text></Text>
-          <Text style={styles.summaryLine}>⏱️ Timer: <Text style={{ color: COLORS.primary }}>{timerMinutes} min</Text></Text>
-          <Text style={styles.summaryLine}>🏆 Max marks: <Text style={{ color: COLORS.primary }}>{(parseInt(numQuestions) || 0) * (parseInt(marksPerQuestion) || 1)}</Text></Text>
+          <Text style={styles.summaryTitle}>
+            <Ionicons name="bar-chart-outline" size={16} /> Summary
+          </Text>
+          <Text style={styles.summaryLine}>
+            <Ionicons name="people-outline" size={14} /> Students: <Text style={{ color: COLORS.primary }}>{students.length}</Text>
+          </Text>
+          <Text style={styles.summaryLine}>
+            <Ionicons name="help-circle-outline" size={14} /> Questions each: <Text style={{ color: COLORS.primary }}>{numQuestions}</Text>
+          </Text>
+          <Text style={styles.summaryLine}>
+            <Ionicons name="time-outline" size={14} /> Timer: <Text style={{ color: COLORS.primary }}>{timerMinutes} min</Text>
+          </Text>
+          <Text style={styles.summaryLine}>
+            <Ionicons name="trophy-outline" size={14} /> Max marks: <Text style={{ color: COLORS.primary }}>{(parseInt(numQuestions) || 0) * (parseInt(marksPerQuestion) || 1)}</Text>
+          </Text>
         </View>
 
         {loading && (
@@ -169,7 +202,9 @@ export default function GenerateTestsScreen({ navigation, route }) {
           activeOpacity={0.85}
         >
           <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.gradientBtn}>
-            <Text style={styles.generateBtnText}>⚡ Generate Unique Tests</Text>
+            <Text style={styles.generateBtnText}>
+              <Ionicons name="flash-outline" size={18} color="#fff" /> Generate Unique Tests
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

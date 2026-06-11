@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -12,59 +12,105 @@ import { apiUpload } from '../../utils/auth';
 const TABS = ['text', 'pdf', 'image'];
 const TAB_LABELS = { text: '📝 Type Text', pdf: '📕 Upload PDF', image: '🖼️ Upload Image' };
 
+// Web-compatible alert
+const showAlert = (title, message) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}: ${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export default function AddNotesScreen({ navigation, route }) {
   const { classroomId, onAdded } = route.params;
   const [activeTab, setActiveTab] = useState('text');
   const [title, setTitle] = useState('');
   const [textContent, setTextContent] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]); // Array of { name, uri, type, webFile? }
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
 
+  // ── PDF picker ──────────────────────────────────────────────
   const pickPDF = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-    if (!result.canceled && result.assets?.[0]) {
-      setSelectedFile(result.assets[0]);
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+      return;
+    }
+    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true });
+    if (!result.canceled && result.assets?.length > 0) {
+      const newFiles = result.assets.map(asset => ({ name: asset.name, uri: asset.uri, type: 'application/pdf' }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
     }
   };
 
+  const onWebPDFChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const newFiles = files.map(file => ({ name: file.name, uri: URL.createObjectURL(file), type: 'application/pdf', webFile: file }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  // ── Image picker ─────────────────────────────────────────────
   const pickImage = async () => {
+    if (Platform.OS === 'web') {
+      imageInputRef.current?.click();
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      showAlert('Permission Required', 'Please allow access to your photo library');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
+      allowsMultipleSelection: true,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      setSelectedFile(result.assets[0]);
+    if (!result.canceled && result.assets?.length > 0) {
+      const newFiles = result.assets.map(asset => ({ name: asset.fileName || 'image.jpg', uri: asset.uri, type: asset.mimeType || 'image/jpeg' }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const onWebImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const newFiles = files.map(file => ({ name: file.name, uri: URL.createObjectURL(file), type: file.type, webFile: file }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
     }
   };
 
   const takePhoto = async () => {
+    if (Platform.OS === 'web') {
+      showAlert('Info', 'On web, use "Choose from Gallery" to pick an image file');
+      return;
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission Required', 'Please allow camera access');
+      showAlert('Permission Required', 'Please allow camera access');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!result.canceled && result.assets?.[0]) {
-      setSelectedFile(result.assets[0]);
+      const asset = result.assets[0];
+      setSelectedFiles(prev => [...prev, { name: 'photo.jpg', uri: asset.uri, type: 'image/jpeg' }]);
     }
   };
 
+  // ── Submit ────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a note title');
+      showAlert('Error', 'Please enter a note title');
       return;
     }
     if (activeTab === 'text' && !textContent.trim()) {
-      Alert.alert('Error', 'Please enter some text content');
+      showAlert('Error', 'Please enter some text content');
       return;
     }
-    if ((activeTab === 'pdf' || activeTab === 'image') && !selectedFile) {
-      Alert.alert('Error', `Please select a ${activeTab.toUpperCase()} file`);
+    if ((activeTab === 'pdf' || activeTab === 'image') && selectedFiles.length === 0) {
+      showAlert('Error', `Please select at least one ${activeTab.toUpperCase()} file`);
       return;
     }
 
@@ -76,22 +122,32 @@ export default function AddNotesScreen({ navigation, route }) {
       if (activeTab === 'text') {
         formData.append('text_content', textContent.trim());
       } else {
-        const file = selectedFile;
-        const fileName = file.name || file.uri.split('/').pop();
-        const mimeType = activeTab === 'pdf' ? 'application/pdf' : (file.mimeType || 'image/jpeg');
-        formData.append('file', {
-          uri: file.uri,
-          type: mimeType,
-          name: fileName,
+        selectedFiles.forEach(fileObj => {
+          if (Platform.OS === 'web' && fileObj.webFile) {
+            formData.append('files', fileObj.webFile, fileObj.name);
+          } else {
+            formData.append('files', {
+              uri: fileObj.uri,
+              type: fileObj.type,
+              name: fileObj.name,
+            });
+          }
         });
       }
 
       await apiUpload(`/notes/classroom/${classroomId}`, formData);
-      Alert.alert('Success', 'Note uploaded! AI has extracted and indexed the content.', [
-        { text: 'OK', onPress: () => { if (onAdded) onAdded(); navigation.goBack(); } },
-      ]);
+
+      if (Platform.OS === 'web') {
+        window.alert('Success: Note uploaded! AI has extracted and indexed the content.');
+        if (onAdded) onAdded();
+        navigation.goBack();
+      } else {
+        Alert.alert('Success', 'Note uploaded! AI has extracted and indexed the content.', [
+          { text: 'OK', onPress: () => { if (onAdded) onAdded(); navigation.goBack(); } },
+        ]);
+      }
     } catch (error) {
-      Alert.alert('Upload Failed', error.message);
+      showAlert('Upload Failed', error.message);
     } finally {
       setLoading(false);
     }
@@ -107,6 +163,14 @@ export default function AddNotesScreen({ navigation, route }) {
 
           <Text style={styles.title}>Add Notes</Text>
           <Text style={styles.subtitle}>AI will extract and learn from your notes to create tests</Text>
+
+          {/* Hidden web file inputs */}
+          {Platform.OS === 'web' && (
+            <>
+              <input ref={fileInputRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={onWebPDFChange} />
+              <input ref={imageInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onWebImageChange} />
+            </>
+          )}
 
           {/* Title */}
           <View style={styles.inputGroup}>
@@ -126,7 +190,7 @@ export default function AddNotesScreen({ navigation, route }) {
               <TouchableOpacity
                 key={tab}
                 style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
-                onPress={() => { setActiveTab(tab); setSelectedFile(null); }}
+                onPress={() => { setActiveTab(tab); setSelectedFiles([]); }}
               >
                 <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
                   {TAB_LABELS[tab]}
@@ -153,16 +217,16 @@ export default function AddNotesScreen({ navigation, route }) {
             {activeTab === 'pdf' && (
               <View style={styles.filePickerContainer}>
                 <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📕</Text>
-                {selectedFile ? (
+                {selectedFiles.length > 0 ? (
                   <View style={styles.selectedFileBox}>
-                    <Text style={styles.selectedFileName}>{selectedFile.name || 'PDF Selected'}</Text>
-                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                      <Text style={{ color: COLORS.error, marginTop: SPACING.sm }}>Remove</Text>
+                    {selectedFiles.map((f, i) => <Text key={i} style={styles.selectedFileName}>✅ {f.name}</Text>)}
+                    <TouchableOpacity onPress={() => setSelectedFiles([])}>
+                      <Text style={{ color: COLORS.error, marginTop: SPACING.sm }}>Remove All</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.pickBtn} onPress={pickPDF}>
-                    <Text style={styles.pickBtnText}>Choose PDF File</Text>
+                    <Text style={styles.pickBtnText}>Choose PDF Files</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -171,25 +235,27 @@ export default function AddNotesScreen({ navigation, route }) {
             {activeTab === 'image' && (
               <View style={styles.filePickerContainer}>
                 <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>🖼️</Text>
-                {selectedFile ? (
+                {selectedFiles.length > 0 ? (
                   <View style={styles.selectedFileBox}>
-                    <Text style={styles.selectedFileName}>Image selected</Text>
-                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                      <Text style={{ color: COLORS.error, marginTop: SPACING.sm }}>Remove</Text>
+                    {selectedFiles.map((f, i) => <Text key={i} style={styles.selectedFileName}>✅ {f.name}</Text>)}
+                    <TouchableOpacity onPress={() => setSelectedFiles([])}>
+                      <Text style={{ color: COLORS.error, marginTop: SPACING.sm }}>Remove All</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <View style={{ gap: SPACING.md, width: '100%' }}>
                     <TouchableOpacity style={styles.pickBtn} onPress={pickImage}>
-                      <Text style={styles.pickBtnText}>📷 Choose from Gallery</Text>
+                      <Text style={styles.pickBtnText}>📷 Choose from Gallery (Multiple)</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.pickBtn} onPress={takePhoto}>
-                      <Text style={styles.pickBtnText}>📸 Take a Photo</Text>
-                    </TouchableOpacity>
+                    {Platform.OS !== 'web' && (
+                      <TouchableOpacity style={styles.pickBtn} onPress={takePhoto}>
+                        <Text style={styles.pickBtnText}>📸 Take a Photo</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
                 <Text style={styles.ocrNote}>
-                  💡 AI will automatically read and extract text from the image, including handwritten notes
+                  💡 AI will automatically read and extract text from the images, including handwritten notes
                 </Text>
               </View>
             )}
@@ -254,11 +320,11 @@ const styles = StyleSheet.create({
   pickBtn: {
     backgroundColor: 'rgba(108,99,255,0.15)', borderRadius: RADIUS.md,
     paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl,
-    borderWidth: 1, borderColor: COLORS.primary,
+    borderWidth: 1, borderColor: COLORS.primary, width: '100%',
   },
   pickBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   selectedFileBox: { alignItems: 'center' },
-  selectedFileName: { color: COLORS.success, fontSize: 15, fontWeight: '600' },
+  selectedFileName: { color: COLORS.success, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   ocrNote: { color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: SPACING.md, lineHeight: 18 },
   submitBtn: { borderRadius: RADIUS.full, overflow: 'hidden' },
   gradientBtn: { paddingVertical: SPACING.md + 2, alignItems: 'center' },

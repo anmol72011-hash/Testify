@@ -5,7 +5,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function TestResultScreen({ navigation, route }) {
   const { testId } = route.params;
   const [result, setResult] = useState(null);
@@ -19,7 +32,7 @@ export default function TestResultScreen({ navigation, route }) {
         setResult(data.result);
         setQuestions(data.questions);
       } catch (error) {
-        Alert.alert('Error', error.message, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+        showAlert('Error', error.message, [{ text: 'OK', onPress: () => navigation.goBack() }]);
       } finally {
         setLoading(false);
       }
@@ -37,7 +50,7 @@ export default function TestResultScreen({ navigation, route }) {
 
   const pct = result?.percentage || 0;
   const scoreColor = pct >= 80 ? COLORS.success : pct >= 50 ? COLORS.warning : COLORS.error;
-  const scoreEmoji = pct >= 80 ? '🏆' : pct >= 50 ? '👍' : '💪';
+  const scoreIcon = pct >= 80 ? 'trophy-outline' : pct >= 50 ? 'thumbs-up-outline' : 'barbell-outline';
 
   return (
     <View style={styles.container}>
@@ -45,7 +58,7 @@ export default function TestResultScreen({ navigation, route }) {
         {/* Score Hero */}
         <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.scoreHero}>
           <Text style={styles.backBtn} onPress={() => navigation.goBack()}>← Back</Text>
-          <Text style={styles.heroEmoji}>{scoreEmoji}</Text>
+          <Ionicons name={scoreIcon} size={64} color={scoreColor} style={{ marginBottom: SPACING.md }} />
           <Text style={styles.heroTitle}>Your Results</Text>
           <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
             <Text style={[styles.scorePercent, { color: scoreColor }]}>{pct}%</Text>
@@ -57,7 +70,9 @@ export default function TestResultScreen({ navigation, route }) {
         {/* AI Feedback */}
         {result?.ai_feedback && (
           <View style={styles.feedbackCard}>
-            <Text style={styles.feedbackLabel}>🤖 AI Feedback</Text>
+            <Text style={styles.feedbackLabel}>
+              <Ionicons name="hardware-chip-outline" size={14} /> AI Feedback
+            </Text>
             <Text style={styles.feedbackText}>{result.ai_feedback}</Text>
           </View>
         )}

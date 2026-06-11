@@ -1,12 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, Alert, RefreshControl, StatusBar,
+  ActivityIndicator, Alert, RefreshControl, StatusBar, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest, clearAuth } from '../../utils/auth';
+import { Ionicons } from '@expo/vector-icons';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 const getBadgeColor = (count) => {
   if (count === 0) return COLORS.textMuted;
   return COLORS.success;
@@ -22,7 +35,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
       const data = await apiRequest('/classrooms');
       setClassrooms(data.classrooms);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -34,17 +47,25 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
   }, [fetchClassrooms]);
 
   const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await clearAuth();
-          onLogout();
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        await clearAuth();
+        onLogout();
+      }
+    } else {
+      showAlert('Logout', 'Are you sure you want to logout?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAuth();
+            onLogout();
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const renderClassroomCard = ({ item }) => (
@@ -117,7 +138,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🏫</Text>
+              <Ionicons name="business-outline" size={60} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.emptyTitle}>No Classrooms Yet</Text>
               <Text style={styles.emptySubtitle}>Create your first classroom to get started</Text>
             </View>

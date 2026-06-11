@@ -186,4 +186,21 @@ router.get('/student/mine', authenticateToken, requireRole('student'), async (re
   }
 });
 
+// DELETE /api/classrooms/leave — Student leaves their current classroom
+router.delete('/leave', authenticateToken, requireRole('student'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM classroom_members WHERE student_id = $1 RETURNING classroom_id',
+      [req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'You are not enrolled in any classroom' });
+    }
+    res.json({ message: 'Successfully left the classroom' });
+  } catch (error) {
+    console.error('Leave classroom error:', error);
+    res.status(500).json({ error: 'Failed to leave classroom' });
+  }
+});
+
 module.exports = router;

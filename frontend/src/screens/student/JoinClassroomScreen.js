@@ -7,6 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 
+// Web-compatible alert helper
+const showAlert = (title, msg, buttons) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(msg ? title + ': ' + msg : title);
+    if (buttons) {
+      const okBtn = buttons.find(b => b.style !== 'cancel');
+      if (okBtn && okBtn.onPress) okBtn.onPress();
+    }
+  } else {
+    Alert.alert(title, msg, buttons);
+  }
+};
 export default function JoinClassroomScreen({ navigation, route }) {
   const { onJoined } = route.params;
   const [code, setCode] = useState('');
@@ -14,7 +26,8 @@ export default function JoinClassroomScreen({ navigation, route }) {
 
   const handleJoin = async () => {
     if (code.trim().length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-character code');
+      if (Platform.OS === 'web') window.alert('Error: Please enter a valid 6-character code');
+      else showAlert('Error', 'Please enter a valid 6-character code');
       return;
     }
     setLoading(true);
@@ -23,11 +36,18 @@ export default function JoinClassroomScreen({ navigation, route }) {
         method: 'POST',
         body: JSON.stringify({ join_code: code.trim().toUpperCase() }),
       });
-      Alert.alert('Joined! 🎉', `Welcome to "${data.classroom.name}"`, [
-        { text: 'OK', onPress: () => { if (onJoined) onJoined(); navigation.goBack(); } },
-      ]);
+      if (Platform.OS === 'web') {
+        window.alert(`Success! Welcome to "${data.classroom.name}"`);
+        if (onJoined) onJoined();
+        navigation.goBack();
+      } else {
+        showAlert('Success!', `Welcome to "${data.classroom.name}"`, [
+          { text: 'OK', onPress: () => { if (onJoined) onJoined(); navigation.goBack(); } },
+        ]);
+      }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      if (Platform.OS === 'web') window.alert(`Error: ${error.message}`);
+      else showAlert('Error', error.message);
     } finally {
       setLoading(false);
     }
