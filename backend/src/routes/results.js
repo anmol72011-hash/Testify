@@ -4,18 +4,29 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/results/test/:testId — Student views own result
-router.get('/test/:testId', authenticateToken, requireRole('student'), async (req, res) => {
+// GET /api/results/test/:testId — Student or Teacher views result
+router.get('/test/:testId', authenticateToken, async (req, res) => {
   try {
     const { testId } = req.params;
 
-    // Verify test belongs to student
-    const test = await pool.query(
-      'SELECT * FROM tests WHERE id = $1 AND student_id = $2',
-      [testId, req.user.id]
-    );
-    if (test.rows.length === 0) {
-      return res.status(404).json({ error: 'Test not found' });
+    // Verify access
+    let test;
+    if (req.user.role === 'student') {
+      test = await pool.query(
+        'SELECT * FROM tests WHERE id = $1 AND student_id = $2',
+        [testId, req.user.id]
+      );
+    } else if (req.user.role === 'teacher') {
+      test = await pool.query(
+        `SELECT t.* FROM tests t 
+         JOIN classrooms c ON t.classroom_id = c.id 
+         WHERE t.id = $1 AND c.teacher_id = $2`,
+        [testId, req.user.id]
+      );
+    }
+
+    if (!test || test.rows.length === 0) {
+      return res.status(403).json({ error: 'Test not found or access denied' });
     }
 
     // Get result

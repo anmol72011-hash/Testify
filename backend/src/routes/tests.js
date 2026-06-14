@@ -107,13 +107,16 @@ router.post('/classroom/:classroomId/generate', authenticateToken, requireRole('
 router.get('/classroom/:classroomId', authenticateToken, requireRole('teacher'), async (req, res) => {
   try {
     const { classroomId } = req.params;
+    await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS is_forfeited BOOLEAN DEFAULT false');
     const result = await pool.query(
-      `SELECT t.id, t.status, t.timer_minutes, t.total_marks, t.created_at, t.assigned_at, t.submitted_at,
-              u.name AS student_name, u.id AS student_id,
-              r.marks_obtained, r.percentage, r.marks_assigned_at
+      `SELECT t.id, t.status, t.timer_minutes, t.total_marks, t.created_at, t.assigned_at, t.submitted_at, t.is_forfeited,
+              u.name AS student_name, u.id AS student_id, u.email AS student_email,
+              r.marks_obtained, r.percentage, r.marks_assigned_at,
+              n.title AS note_title
        FROM tests t
        JOIN users u ON t.student_id = u.id
        LEFT JOIN results r ON r.test_id = t.id
+       LEFT JOIN notes n ON t.note_id = n.id
        WHERE t.classroom_id = $1
        ORDER BY u.name ASC`,
       [classroomId]
@@ -153,15 +156,44 @@ router.post('/classroom/:classroomId/assign', authenticateToken, requireRole('te
   }
 });
 
+// GET /api/tests/teacher/history — List all past tests across all classrooms for the teacher
+router.get('/teacher/history', authenticateToken, requireRole('teacher'), async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS is_forfeited BOOLEAN DEFAULT false');
+    const result = await pool.query(
+      `SELECT t.id, t.status, t.total_marks, t.submitted_at, t.is_forfeited,
+              u.name AS student_name, u.email AS student_email,
+              c.name AS classroom_name,
+              n.title AS note_title,
+              r.marks_obtained, r.percentage
+       FROM tests t
+       JOIN users u ON t.student_id = u.id
+       JOIN classrooms c ON t.classroom_id = c.id
+       JOIN notes n ON t.note_id = n.id
+       LEFT JOIN results r ON r.test_id = t.id
+       WHERE c.teacher_id = $1 AND t.status = 'graded'
+       ORDER BY t.submitted_at DESC`,
+      [req.user.id]
+    );
+    res.json({ history: result.rows });
+  } catch (error) {
+    console.error('Get teacher history error:', error);
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
 // GET /api/tests/student/mine — Student's assigned test
 router.get('/student/mine', authenticateToken, requireRole('student'), async (req, res) => {
   try {
+    await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS is_forfeited BOOLEAN DEFAULT false');
     const result = await pool.query(
-      `SELECT t.id, t.status, t.timer_minutes, t.total_marks, t.assigned_at,
-              n.title AS note_title, c.name AS classroom_name
+      `SELECT t.id, t.status, t.timer_minutes, t.total_marks, t.assigned_at, t.is_forfeited,
+              n.title AS note_title, c.name AS classroom_name,
+              r.marks_obtained, r.percentage
        FROM tests t
        JOIN notes n ON t.note_id = n.id
        JOIN classrooms c ON t.classroom_id = c.id
+       LEFT JOIN results r ON r.test_id = t.id
        WHERE t.student_id = $1
        ORDER BY t.created_at DESC`,
       [req.user.id]
@@ -192,8 +224,38 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const testData = test.rows[0];
 
     // Check access
-    if (req.user.role === 'student' && testData.student_id !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (req.user.role === 'student') {
+      if (testData.student_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Ensure columns exist (lazy migration)
+      await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS started_at TIMESTAMP');
+      await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS is_forfeited BOOLEAN DEFAULT false');
+
+      // Check if the student is re-attempting the test (e.g. after a page reload or going back)
+      if (testData.status === 'assigned') {
+        // We check a fresh fetch of started_at
+        const startedCheck = await pool.query('SELECT started_at FROM tests WHERE id = $1', [id]);
+        if (startedCheck.rows[0].started_at) {
+          // It was already started! They left and came back. Auto-forfeit.
+          await pool.query(
+            `UPDATE tests SET status = 'graded', submitted_at = CURRENT_TIMESTAMP, is_forfeited = true WHERE id = $1`,
+            [id]
+          );
+          // Assign 0 marks
+          await pool.query(
+            `INSERT INTO results (test_id, student_id, total_marks, marks_obtained, percentage, graded_at, marks_assigned_at)
+             VALUES ($1, $2, $3, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON CONFLICT (test_id) DO UPDATE SET marks_obtained = 0, percentage = 0`,
+            [id, testData.student_id, testData.total_marks]
+          );
+          return res.status(403).json({ error: 'Test Forfeited: You reloaded the page or left the test screen. You cannot re-attempt this test.' });
+        } else {
+          // First time starting the test
+          await pool.query('UPDATE tests SET started_at = CURRENT_TIMESTAMP WHERE id = $1', [id]);
+        }
+      }
     }
 
     // Get questions (hide correct_answers for students)
@@ -215,7 +277,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/:id/submit', authenticateToken, requireRole('student'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { answers } = req.body; // Array of { question_id, selected_options }
+    const { answers, is_forfeited } = req.body; // Array of { question_id, selected_options }
 
     // Verify test belongs to student
     const test = await pool.query(
@@ -242,10 +304,21 @@ router.post('/:id/submit', authenticateToken, requireRole('student'), async (req
     }
 
     // Update test status
+    await pool.query('ALTER TABLE tests ADD COLUMN IF NOT EXISTS is_forfeited BOOLEAN DEFAULT false');
+    const nextStatus = is_forfeited ? 'graded' : 'submitted';
     await pool.query(
-      `UPDATE tests SET status = 'submitted', submitted_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [id]
+      `UPDATE tests SET status = $2, submitted_at = CURRENT_TIMESTAMP, is_forfeited = $3 WHERE id = $1`,
+      [id, nextStatus, is_forfeited === true]
     );
+
+    if (is_forfeited) {
+      await pool.query(
+        `INSERT INTO results (test_id, student_id, total_marks, marks_obtained, percentage, graded_at, marks_assigned_at)
+         VALUES ($1, $2, $3, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         ON CONFLICT (test_id) DO UPDATE SET marks_obtained = 0, percentage = 0`,
+        [id, req.user.id, test.rows[0].total_marks]
+      );
+    }
 
     res.json({ message: 'Test submitted successfully' });
   } catch (error) {

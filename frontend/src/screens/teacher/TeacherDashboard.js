@@ -2,8 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, Alert, RefreshControl, StatusBar, Platform,
+  LayoutAnimation, UIManager
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest, clearAuth } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +38,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
   const fetchClassrooms = useCallback(async () => {
     try {
       const data = await apiRequest('/classrooms');
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setClassrooms(data.classrooms);
     } catch (error) {
       showAlert('Error', error.message);
@@ -113,9 +119,14 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
             <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
             <Text style={styles.headerSub}>Teacher Dashboard</Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutIcon}>↩</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+            <TouchableOpacity style={styles.historyBtn} onPress={() => navigation.navigate('TeacherHistory')}>
+              <Ionicons name="time-outline" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Text style={styles.logoutIcon}>↩</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -125,7 +136,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
         </View>
       ) : (
         <FlatList
-          data={classrooms}
+          data={classrooms.slice(0, 1)}
           keyExtractor={(item) => item.id}
           renderItem={renderClassroomCard}
           contentContainerStyle={styles.list}
@@ -179,6 +190,10 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
   headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+  historyBtn: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.bgCard,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
+  },
   logoutBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: COLORS.bgCard,

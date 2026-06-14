@@ -9,8 +9,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiUpload } from '../../utils/auth';
 
-const TABS = ['text', 'pdf', 'image'];
-const TAB_LABELS = { text: '📝 Type Text', pdf: '📕 Upload PDF', image: '🖼️ Upload Image' };
+const TABS = ['word', 'pdf', 'image'];
+const TAB_LABELS = { word: '📄 Upload Word', pdf: '📕 Upload PDF', image: '🖼️ Upload Image' };
 
 // Web-compatible alert
 const showAlert = (title, message) => {
@@ -23,13 +23,39 @@ const showAlert = (title, message) => {
 
 export default function AddNotesScreen({ navigation, route }) {
   const { classroomId, onAdded } = route.params;
-  const [activeTab, setActiveTab] = useState('text');
+  const [activeTab, setActiveTab] = useState('word');
   const [title, setTitle] = useState('');
-  const [textContent, setTextContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]); // Array of { name, uri, type, webFile? }
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
+
+  // ── Word picker ─────────────────────────────────────────────
+  const pickWord = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+      return;
+    }
+    const result = await DocumentPicker.getDocumentAsync({ 
+      type: [
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ], 
+      multiple: true 
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      const newFiles = result.assets.map(asset => ({ name: asset.name, uri: asset.uri, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const onWebWordChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const newFiles = files.map(file => ({ name: file.name, uri: URL.createObjectURL(file), type: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', webFile: file }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
 
   // ── PDF picker ──────────────────────────────────────────────
   const pickPDF = async () => {
@@ -105,11 +131,7 @@ export default function AddNotesScreen({ navigation, route }) {
       showAlert('Error', 'Please enter a note title');
       return;
     }
-    if (activeTab === 'text' && !textContent.trim()) {
-      showAlert('Error', 'Please enter some text content');
-      return;
-    }
-    if ((activeTab === 'pdf' || activeTab === 'image') && selectedFiles.length === 0) {
+    if ((activeTab === 'word' || activeTab === 'pdf' || activeTab === 'image') && selectedFiles.length === 0) {
       showAlert('Error', `Please select at least one ${activeTab.toUpperCase()} file`);
       return;
     }
@@ -119,21 +141,17 @@ export default function AddNotesScreen({ navigation, route }) {
       const formData = new FormData();
       formData.append('title', title.trim());
 
-      if (activeTab === 'text') {
-        formData.append('text_content', textContent.trim());
-      } else {
-        selectedFiles.forEach(fileObj => {
-          if (Platform.OS === 'web' && fileObj.webFile) {
-            formData.append('files', fileObj.webFile, fileObj.name);
-          } else {
-            formData.append('files', {
-              uri: fileObj.uri,
-              type: fileObj.type,
-              name: fileObj.name,
-            });
-          }
-        });
-      }
+      selectedFiles.forEach(fileObj => {
+        if (Platform.OS === 'web' && fileObj.webFile) {
+          formData.append('files', fileObj.webFile, fileObj.name);
+        } else {
+          formData.append('files', {
+            uri: fileObj.uri,
+            type: fileObj.type,
+            name: fileObj.name,
+          });
+        }
+      });
 
       await apiUpload(`/notes/classroom/${classroomId}`, formData);
 
@@ -167,7 +185,8 @@ export default function AddNotesScreen({ navigation, route }) {
           {/* Hidden web file inputs */}
           {Platform.OS === 'web' && (
             <>
-              <input ref={fileInputRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={onWebPDFChange} />
+              {activeTab === 'word' && <input ref={fileInputRef} type="file" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple style={{ display: 'none' }} onChange={onWebWordChange} />}
+              {activeTab === 'pdf' && <input ref={fileInputRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={onWebPDFChange} />}
               <input ref={imageInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onWebImageChange} />
             </>
           )}
@@ -201,17 +220,22 @@ export default function AddNotesScreen({ navigation, route }) {
 
           {/* Tab Content */}
           <View style={styles.tabContent}>
-            {activeTab === 'text' && (
-              <TextInput
-                style={styles.textArea}
-                placeholder="Type or paste your notes here..."
-                placeholderTextColor={COLORS.textMuted}
-                value={textContent}
-                onChangeText={setTextContent}
-                multiline
-                numberOfLines={12}
-                textAlignVertical="top"
-              />
+            {activeTab === 'word' && (
+              <View style={styles.filePickerContainer}>
+                <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📄</Text>
+                {selectedFiles.length > 0 ? (
+                  <View style={styles.selectedFileBox}>
+                    {selectedFiles.map((f, i) => <Text key={i} style={styles.selectedFileName}>✅ {f.name}</Text>)}
+                    <TouchableOpacity onPress={() => setSelectedFiles([])}>
+                      <Text style={{ color: COLORS.error, marginTop: SPACING.sm }}>Remove All</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.pickBtn} onPress={pickWord}>
+                    <Text style={styles.pickBtnText}>Choose Word Files</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
 
             {activeTab === 'pdf' && (

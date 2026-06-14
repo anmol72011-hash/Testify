@@ -2,8 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, Alert, RefreshControl, ScrollView,
+  LayoutAnimation, UIManager, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +31,7 @@ const STATUS_COLORS = {
   assigned: COLORS.warning,
   submitted: COLORS.info,
   graded: COLORS.success,
+  forfeited: COLORS.danger,
 };
 
 export default function ClassroomDetailScreen({ navigation, route }) {
@@ -67,6 +74,24 @@ export default function ClassroomDetailScreen({ navigation, route }) {
     fetchData();
     fetchResults();
   }, [fetchData, fetchResults]);
+
+  useEffect(() => {
+    const loadTab = async () => {
+      try {
+        const savedTab = await AsyncStorage.getItem(`TESTIFY_TAB_${classroom.id}`);
+        if (savedTab) setActiveTab(savedTab);
+      } catch (e) {}
+    };
+    loadTab();
+  }, [classroom.id]);
+
+  const handleTabChange = async (tab) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveTab(tab);
+    try {
+      await AsyncStorage.setItem(`TESTIFY_TAB_${classroom.id}`, tab);
+    } catch (e) {}
+  };
 
   const handleAssignTests = async () => {
     showAlert('Assign Tests', 'Send tests to all students?', [
@@ -122,6 +147,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             const data = await apiRequest(`/evaluation/classroom/${classroom.id}/assign-marks`, { method: 'POST' });
             showAlert('Success', data.message);
             fetchResults();
+            fetchData();
           } catch (e) {
             showAlert('Error', e.message);
           } finally {
@@ -152,7 +178,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
 
   const tabs = ['notes', 'tests', 'students', 'results'];
   const submittedCount = tests.filter(t => t.status === 'submitted').length;
-  const gradedCount = tests.filter(t => t.status === 'graded').length;
+  const gradedCount = tests.filter(t => t.status === 'graded' && !t.marks_assigned_at).length;
   const pendingCount = tests.filter(t => t.status === 'pending').length;
 
   const renderTabContent = () => {
@@ -237,7 +263,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             <TouchableOpacity style={styles.actionBtn} onPress={handleAssignMarks}>
               <LinearGradient colors={[COLORS.success, '#30C490']} style={styles.actionBtnGradient}>
                 <Text style={styles.actionBtnText}>
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#fff" /> Assign & Publish Marks
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#fff" /> Assign & Publish Marks ({gradedCount} pending)
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -256,9 +282,9 @@ export default function ClassroomDetailScreen({ navigation, route }) {
                     <Text style={styles.testScore}>{test.marks_obtained}/{test.total_marks} marks</Text>
                   )}
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[test.status] + '22' }]}>
-                  <Text style={[styles.statusText, { color: STATUS_COLORS[test.status] }]}>
-                    {test.status.toUpperCase()}
+                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[test.is_forfeited ? 'forfeited' : test.status] + '22' }]}>
+                  <Text style={[styles.statusText, { color: STATUS_COLORS[test.is_forfeited ? 'forfeited' : test.status] }]}>
+                    {test.is_forfeited ? 'FORFEITED' : test.status.toUpperCase()}
                   </Text>
                 </View>
               </View>
@@ -304,24 +330,35 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             </View>
           ) : (
             results.map((r, idx) => (
-              <View key={r.test_id || idx} style={styles.resultCard}>
-                <View style={styles.resultRank}>
-                  <Text style={styles.rankText}>{idx + 1}</Text>
+              <View key={r.test_id || idx} style={[styles.resultCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+                  <View style={styles.resultRank}>
+                    <Text style={styles.rankText}>{idx + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resultName}>{r.student_name}</Text>
+                    <Text style={styles.resultEmail}>{r.email}</Text>
+                  </View>
+                  <View style={styles.resultScore}>
+                    {r.marks_obtained != null ? (
+                      <>
+                        <Text style={styles.resultMarks}>{r.marks_obtained}/{r.total_marks}</Text>
+                        <Text style={styles.resultPct}>{r.percentage}%</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.resultPending}>{r.test_status}</Text>
+                    )}
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.resultName}>{r.student_name}</Text>
-                  <Text style={styles.resultEmail}>{r.email}</Text>
-                </View>
-                <View style={styles.resultScore}>
-                  {r.marks_obtained != null ? (
-                    <>
-                      <Text style={styles.resultMarks}>{r.marks_obtained}/{r.total_marks}</Text>
-                      <Text style={styles.resultPct}>{r.percentage}%</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.resultPending}>{r.test_status}</Text>
-                  )}
-                </View>
+
+                {(r.test_status === 'graded' || r.test_status === 'forfeited') && r.test_id && (
+                  <TouchableOpacity
+                    style={styles.viewResultBtn}
+                    onPress={() => navigation.navigate('TestResult', { testId: r.test_id })}
+                  >
+                    <Text style={styles.viewResultText}>View Detailed Results →</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
@@ -350,7 +387,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => handleTabChange(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
               {tab === 'notes' ? '📄' : tab === 'tests' ? '📋' : tab === 'students' ? '👥' : '📊'}
@@ -460,6 +497,11 @@ const styles = StyleSheet.create({
   resultMarks: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   resultPct: { fontSize: 13, color: COLORS.success, fontWeight: '600' },
   resultPending: { fontSize: 12, color: COLORS.textMuted },
+  viewResultBtn: {
+    paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border,
+    alignItems: 'center'
+  },
+  viewResultText: { color: COLORS.primaryLight, fontSize: 13, fontWeight: '700' },
   loadingOverlay: { alignItems: 'center', paddingVertical: SPACING.lg },
   loadingText: { color: COLORS.textMuted, marginTop: SPACING.sm },
   deleteNoteBtn: { padding: SPACING.sm },

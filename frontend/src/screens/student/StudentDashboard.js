@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
-  Alert, RefreshControl, StatusBar, Platform,
+  Alert, RefreshControl, StatusBar, Platform, LayoutAnimation, UIManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest, clearAuth } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Web-compatible alert helper
 const showAlert = (title, msg, buttons) => {
@@ -25,6 +30,7 @@ const STATUS_INFO = {
   assigned: { color: COLORS.warning, icon: 'clipboard-outline', label: 'Test Ready!' },
   submitted: { color: COLORS.info, icon: 'checkmark-circle-outline', label: 'Submitted' },
   graded: { color: COLORS.success, icon: 'trophy-outline', label: 'Results Available!' },
+  forfeited: { color: COLORS.danger, icon: 'close-circle-outline', label: 'Forfeited' },
 };
 
 export default function StudentDashboard({ navigation, user, onLogout }) {
@@ -39,6 +45,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
         apiRequest('/classrooms/student/mine'),
         apiRequest('/tests/student/mine'),
       ]);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setClassroom(clsData.classroom);
       setTests(testsData.tests || []);
     } catch (error) {
@@ -49,9 +56,11 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const handleLeaveClassroom = async () => {
     const confirmed = Platform.OS === 'web'
@@ -109,9 +118,14 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
             <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
             <Text style={styles.headerSub}>Student Dashboard</Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+            <TouchableOpacity style={styles.historyBtn} onPress={() => navigation.navigate('StudentHistory')}>
+              <Ionicons name="time-outline" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -162,15 +176,16 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
           {/* Tests */}
           {classroom && (
             <>
-              <Text style={styles.sectionTitle}>Your Tests</Text>
-              {tests.length === 0 ? (
+              <Text style={styles.sectionTitle}>Active Tests</Text>
+              {tests.filter(t => t.status === 'assigned').length === 0 ? (
                 <View style={styles.noTests}>
                   <Ionicons name="mail-unread-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
-                  <Text style={styles.noTestsText}>No tests assigned yet</Text>
+                  <Text style={styles.noTestsText}>No active tests</Text>
                 </View>
               ) : (
-                tests.map(test => {
-                  const statusInfo = STATUS_INFO[test.status] || STATUS_INFO.pending;
+                tests.filter(t => t.status === 'assigned').map(test => {
+                  const displayStatus = test.is_forfeited ? 'forfeited' : test.status;
+                  const statusInfo = STATUS_INFO[displayStatus] || STATUS_INFO.pending;
                   return (
                     <View key={test.id} style={styles.testCard}>
                       <LinearGradient colors={['rgba(108,99,255,0.08)', 'transparent']} style={styles.testCardGradient}>
@@ -202,14 +217,6 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                             </LinearGradient>
                           </TouchableOpacity>
                         )}
-                        {test.status === 'graded' && (
-                          <TouchableOpacity
-                            style={styles.viewResultBtn}
-                            onPress={() => navigation.navigate('TestResult', { testId: test.id })}
-                          >
-                            <Text style={styles.viewResultText}>View Results →</Text>
-                          </TouchableOpacity>
-                        )}
                       </LinearGradient>
                     </View>
                   );
@@ -220,21 +227,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
         </ScrollView>
       )}
 
-      {/* FAB — always visible Join Classroom button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('JoinClassroom', { onJoined: fetchData })}
-        activeOpacity={0.85}
-      >
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryDark]}
-          style={styles.fabGradient}
-        >
-          <Text style={styles.fabText}>
-            <Ionicons name="key-outline" size={16} color="#fff" /> Join a Classroom
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+
     </View>
   );
 }
@@ -245,6 +238,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greeting: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
   headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+  historyBtn: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.bgCard,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
+  },
   logoutBtn: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.bgCard,
     justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,

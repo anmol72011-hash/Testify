@@ -43,6 +43,7 @@ router.post(
         let allExtractedText = '';
         let hasImage = false;
         let hasPdf = false;
+        let hasWord = false;
 
         for (const file of req.files) {
           const mimeType = file.mimetype;
@@ -54,6 +55,12 @@ router.post(
           } else if (mimeType.startsWith('image/')) {
             hasImage = true;
             extracted = await extractTextFromFile(file.path, 'image');
+          } else if (
+            mimeType === 'application/msword' || 
+            mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ) {
+            hasWord = true;
+            extracted = await extractTextFromFile(file.path, 'word');
           }
           
           if (extracted) {
@@ -61,7 +68,8 @@ router.post(
           }
         }
         
-        if (hasPdf && !hasImage) fileType = 'pdf';
+        if (hasWord) fileType = 'word';
+        else if (hasPdf && !hasImage) fileType = 'pdf';
         else if (hasImage && !hasPdf) fileType = 'image';
         else if (hasImage && hasPdf) fileType = 'mixed';
         

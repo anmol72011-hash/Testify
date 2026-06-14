@@ -47,13 +47,17 @@ async function callGroq(prompt, systemPrompt = 'You are an expert educational as
 }
 
 const Tesseract = require('tesseract.js');
+const mammoth = require('mammoth');
 
 /**
- * Extract text content from PDF or image file
+ * Extract text content from PDF, Image, or Word file
  */
 async function extractTextFromFile(filePath, fileType) {
   try {
-    if (fileType === 'pdf') {
+    if (fileType === 'word') {
+      const result = await mammoth.extractRawText({ path: filePath });
+      return result.value || '';
+    } else if (fileType === 'pdf') {
       const dataBuffer = fs.readFileSync(filePath);
       const pdfData = await pdf(dataBuffer);
       return pdfData.text;

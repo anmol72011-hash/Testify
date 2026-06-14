@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS notes (
   title VARCHAR(255) NOT NULL,
   content_text TEXT,
   file_path VARCHAR(500),
-  file_type VARCHAR(20) NOT NULL CHECK (file_type IN ('text', 'pdf', 'image')),
+  file_type VARCHAR(20) NOT NULL CHECK (file_type IN ('text', 'word', 'pdf', 'image', 'mixed')),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

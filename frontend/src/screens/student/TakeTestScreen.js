@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
-  Alert, BackHandler,
+  Alert, BackHandler, AppState, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
@@ -9,11 +9,13 @@ import { apiRequest } from '../../utils/auth';
 
 // Web-compatible alert helper
 const showAlert = (title, msg, buttons) => {
-  if (typeof window !== 'undefined' && window.alert) {
-    window.alert(msg ? title + ': ' + msg : title);
-    if (buttons) {
-      const okBtn = buttons.find(b => b.style !== 'cancel');
-      if (okBtn && okBtn.onPress) okBtn.onPress();
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.alert) {
+      window.alert(msg ? title + ': ' + msg : title);
+      if (buttons) {
+        const okBtn = buttons.find(b => b.style !== 'cancel');
+        if (okBtn && okBtn.onPress) okBtn.onPress();
+      }
     }
   } else {
     Alert.alert(title, msg, buttons);
@@ -33,13 +35,20 @@ export default function TakeTestScreen({ navigation, route }) {
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [warnings, setWarnings] = useState(0);
+  const [cheatWarning, setCheatWarning] = useState(false);
+  const [cheatTimer, setCheatTimer] = useState(10);
   const timerRef = useRef(null);
+  const forfeitTimerRef = useRef(null);
+  const leaveTimeRef = useRef(null);
+  const cheatIntervalRef = useRef(null);
   const submitted = useRef(false);
 
-  const submitTest = useCallback(async (auto = false) => {
+  const submitTest = useCallback(async (auto = false, reason = '') => {
     if (submitted.current) return;
     submitted.current = true;
     clearInterval(timerRef.current);
+    clearTimeout(forfeitTimerRef.current);
     setSubmitting(true);
     try {
       const answersArray = Object.entries(answers).map(([question_id, selected_options]) => ({
@@ -48,13 +57,15 @@ export default function TakeTestScreen({ navigation, route }) {
       }));
       await apiRequest(`/tests/${testId}/submit`, {
         method: 'POST',
-        body: JSON.stringify({ answers: answersArray }),
+        body: JSON.stringify({ answers: answersArray, is_forfeited: reason === 'forfeit' }),
       });
       showAlert(
-        auto ? '⏱️ Time is Up!' : '✅ Test Submitted!',
-        auto
-          ? 'Your test has been auto-submitted as time ran out.'
-          : 'Your test has been submitted. Wait for your teacher to publish results.',
+        reason === 'forfeit' ? '❌ Test Forfeited' : (auto ? '⏱️ Time is Up!' : '✅ Test Submitted!'),
+        reason === 'forfeit' 
+          ? 'Your test was automatically submitted because you left the screen or reloaded.'
+          : (auto
+            ? 'Your test has been auto-submitted as time ran out.'
+            : 'Your test has been submitted. Wait for your teacher to publish results.'),
         [{ text: 'OK', onPress: () => navigation.navigate('StudentDashboard') }]
       );
     } catch (error) {
@@ -98,17 +109,106 @@ export default function TakeTestScreen({ navigation, route }) {
     return () => clearInterval(timerRef.current);
   }, [test, submitTest]);
 
-  // Block back button
+  const triggerOffense = useCallback(() => {
+    if (submitted.current) return;
+    if (warnings >= 1) {
+      submitTest(true, 'forfeit');
+    } else {
+      setWarnings(1);
+      setCheatWarning(true);
+      setCheatTimer(10);
+    }
+  }, [warnings, submitTest]);
+
+  // Restrict navigation (back button or swipe)
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      showAlert('Exit Test?', 'Going back will lose your progress.', [
-        { text: 'Stay', style: 'cancel' },
-        { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
-      ]);
-      return true;
+    if (!test || submitted.current) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (submitted.current) return;
+      e.preventDefault();
+      triggerOffense();
     });
-    return () => backHandler.remove();
-  }, [navigation]);
+    return unsubscribe;
+  }, [navigation, test, triggerOffense]);
+
+  // Handle cheat timer countdown
+  useEffect(() => {
+    if (cheatWarning && cheatTimer > 0) {
+      cheatIntervalRef.current = setInterval(() => {
+        setCheatTimer(prev => prev - 1);
+      }, 1000);
+    } else if (cheatWarning && cheatTimer <= 0) {
+      clearInterval(cheatIntervalRef.current);
+      setCheatWarning(false);
+      submitTest(true, 'forfeit');
+    }
+    return () => clearInterval(cheatIntervalRef.current);
+  }, [cheatWarning, cheatTimer, submitTest]);
+
+  const resumeTest = () => {
+    setCheatWarning(false);
+    clearInterval(cheatIntervalRef.current);
+  };
+
+  // Anti-Cheat: Screen leave & page reload
+  useEffect(() => {
+    if (!test || submitted.current) return;
+
+    // Web-specific reload warning
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Reloading will forfeit your test. Are you sure?';
+      // In some browsers, trying to reload causes a blur event. We rely on the AppState for actual forfeit if they leave.
+      return e.returnValue;
+    };
+    if (Platform.OS === 'web') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    const appStateRef = { current: AppState.currentState };
+
+    const handleAppStateChange = (nextAppState) => {
+      if (submitted.current) return;
+      
+      if (nextAppState.match(/inactive|background/) && appStateRef.current === 'active') {
+        // Going to background
+        leaveTimeRef.current = Date.now();
+        if (forfeitTimerRef.current) clearTimeout(forfeitTimerRef.current);
+        
+        // Start a 10-second timer to auto-submit if they don't return
+        forfeitTimerRef.current = setTimeout(() => {
+          if (!submitted.current) {
+            submitTest(true, 'forfeit');
+          }
+        }, 10000);
+      } else if (nextAppState === 'active' && appStateRef.current.match(/inactive|background/)) {
+        // Returning to active
+        if (leaveTimeRef.current) {
+          clearTimeout(forfeitTimerRef.current);
+          const timeAway = Date.now() - leaveTimeRef.current;
+          
+          if (timeAway > 10000) {
+            // Timer already caught it, or we barely missed it.
+            if (!submitted.current) submitTest(true, 'forfeit');
+          } else {
+            // They returned within 10s background limit, but it's an offense!
+            triggerOffense();
+          }
+          leaveTimeRef.current = null;
+        }
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+      if (Platform.OS === 'web') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      }
+    };
+  }, [test, warnings, submitTest]);
 
   const toggleAnswer = (questionId, optionIndex, type) => {
     setAnswers(prev => {
@@ -238,6 +338,23 @@ export default function TakeTestScreen({ navigation, route }) {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Cheat Warning Overlay */}
+      {cheatWarning && (
+        <View style={styles.cheatOverlay}>
+          <LinearGradient colors={['#FF3B30', '#990000']} style={styles.cheatBox}>
+            <Text style={styles.cheatTitle}>⚠️ WARNING</Text>
+            <Text style={styles.cheatText}>
+              You attempted to leave the test screen or switched apps. This is your FIRST and ONLY warning.
+            </Text>
+            <Text style={styles.cheatTimerText}>{cheatTimer}s</Text>
+            <Text style={styles.cheatSubText}>Return to the test immediately or it will be forfeited.</Text>
+            <TouchableOpacity style={styles.resumeBtn} onPress={resumeTest} activeOpacity={0.8}>
+              <Text style={styles.resumeBtnText}>Resume Test</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      )}
     </View>
   );
 }
@@ -297,4 +414,22 @@ const styles = StyleSheet.create({
   submitBtn: { borderRadius: RADIUS.full, overflow: 'hidden', marginTop: SPACING.md },
   gradientBtn: { paddingVertical: SPACING.md + 2, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  cheatOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: SPACING.xl,
+    zIndex: 1000, elevation: 10,
+  },
+  cheatBox: {
+    padding: SPACING.xl, borderRadius: RADIUS.lg, alignItems: 'center', width: '100%',
+    borderWidth: 2, borderColor: '#FF8A80',
+  },
+  cheatTitle: { fontSize: 24, fontWeight: '900', color: '#fff', marginBottom: SPACING.md },
+  cheatText: { fontSize: 16, color: '#fff', textAlign: 'center', lineHeight: 24, marginBottom: SPACING.lg },
+  cheatTimerText: { fontSize: 64, fontWeight: '900', color: '#fff', marginBottom: SPACING.sm },
+  cheatSubText: { fontSize: 14, color: '#FFD6D6', textAlign: 'center', marginBottom: SPACING.xl },
+  resumeBtn: {
+    backgroundColor: '#fff', paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.full, width: '100%', alignItems: 'center',
+  },
+  resumeBtnText: { color: '#990000', fontSize: 18, fontWeight: '800' },
 });
