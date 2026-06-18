@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, SectionList, ActivityIndicator, TouchableOpacity, RefreshControl, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -53,7 +54,7 @@ export default function TeacherHistoryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.header}>
+      <BlurView intensity={30} tint="dark" style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
@@ -62,7 +63,7 @@ export default function TeacherHistoryScreen({ navigation }) {
           <Text style={styles.title}>Past Classrooms</Text>
         </View>
         <Text style={styles.subTitle}>Archive of all previously taken classrooms.</Text>
-      </LinearGradient>
+      </BlurView>
 
       {loading ? (
         <View style={styles.centered}>
@@ -80,22 +81,23 @@ export default function TeacherHistoryScreen({ navigation }) {
           )}
           renderItem={({ item }) => (
             <TouchableOpacity 
-              style={styles.historyCard} 
               onPress={() => navigation.navigate('TeacherClassroomHistory', { classroomId: item.id, classroomName: item.name })}
               activeOpacity={0.8}
             >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="school-outline" size={32} color={COLORS.primary} style={{ marginRight: SPACING.md }} />
-                  <View>
-                    <Text style={styles.sectionTitle}>{item.name}</Text>
-                    <Text style={{ fontSize: 13, color: COLORS.textMuted, marginTop: 4 }}>
-                      Created on: {new Date(item.created_at).toLocaleDateString()}
-                    </Text>
+              <BlurView intensity={30} tint="dark" style={styles.historyCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="school-outline" size={32} color={COLORS.primary} style={{ marginRight: SPACING.md }} />
+                    <View>
+                      <Text style={styles.sectionTitle}>{item.name}</Text>
+                      <Text style={{ fontSize: 13, color: COLORS.textMuted, marginTop: 4 }}>
+                        Created on: {new Date(item.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
                   </View>
+                  <Ionicons name="chevron-forward" size={24} color={COLORS.textMuted} />
                 </View>
-                <Ionicons name="chevron-forward" size={24} color={COLORS.textMuted} />
-              </View>
+              </BlurView>
             </TouchableOpacity>
           )}
           refreshControl={
@@ -124,11 +126,11 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: SPACING.xl, paddingBottom: 100 },
   historyCard: {
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, padding: SPACING.md,
-    marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, padding: SPACING.md,
+    marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   dateHeader: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: 'transparent',
     paddingVertical: SPACING.sm,
     marginBottom: SPACING.sm,
     marginTop: SPACING.sm,
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   sectionHeader: {
-    backgroundColor: COLORS.bg, paddingVertical: SPACING.sm, marginBottom: SPACING.sm,
+    backgroundColor: 'transparent', paddingVertical: SPACING.sm, marginBottom: SPACING.sm,
     marginTop: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: COLORS.primaryLight, letterSpacing: 0.5 },

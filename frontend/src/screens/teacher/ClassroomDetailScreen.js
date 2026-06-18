@@ -5,6 +5,7 @@ import {
   LayoutAnimation, UIManager, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -189,9 +190,9 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             style={styles.actionBtn}
             onPress={() => navigation.navigate('AddNotes', { classroomId: classroom.id, onAdded: fetchData })}
           >
-            <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.actionBtnGradient}>
+            <BlurView intensity={40} tint="light" style={[styles.actionBtnGradient, { backgroundColor: 'rgba(108,99,255,0.3)', borderWidth: 1.5, borderColor: 'rgba(108,99,255,0.6)' }]}>
               <Text style={styles.actionBtnText}>+ Add Notes</Text>
-            </LinearGradient>
+            </BlurView>
           </TouchableOpacity>
           {notes.length === 0 ? (
             <View style={styles.emptyBox}>
@@ -200,7 +201,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             </View>
           ) : (
             notes.map(note => (
-              <View key={note.id} style={styles.noteCard}>
+              <BlurView intensity={30} tint="dark" key={note.id} style={styles.noteCard}>
                 <Ionicons 
                   name={note.file_type === 'pdf' ? 'book-outline' : note.file_type === 'image' ? 'image-outline' : 'document-outline'} 
                   size={24} 
@@ -214,7 +215,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
                 <TouchableOpacity style={styles.deleteNoteBtn} onPress={() => handleDeleteNote(note.id)}>
                   <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
                 </TouchableOpacity>
-              </View>
+              </BlurView>
             ))
           )}
           {notes.length > 0 && (
@@ -243,29 +244,29 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           {/* Action buttons */}
           {pendingCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleAssignTests}>
-              <LinearGradient colors={[COLORS.warning, '#E8962A']} style={styles.actionBtnGradient}>
+              <BlurView intensity={40} tint="light" style={[styles.actionBtnGradient, { backgroundColor: 'rgba(255,171,0,0.3)', borderWidth: 1.5, borderColor: 'rgba(255,171,0,0.6)' }]}>
                 <Text style={styles.actionBtnText}>
                   <Ionicons name="paper-plane-outline" size={18} color="#fff" /> Assign Tests ({pendingCount} pending)
                 </Text>
-              </LinearGradient>
+              </BlurView>
             </TouchableOpacity>
           )}
           {submittedCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleEvaluate}>
-              <LinearGradient colors={[COLORS.info, '#37B3AA']} style={styles.actionBtnGradient}>
+              <BlurView intensity={40} tint="light" style={[styles.actionBtnGradient, { backgroundColor: 'rgba(0,184,217,0.3)', borderWidth: 1.5, borderColor: 'rgba(0,184,217,0.6)' }]}>
                 <Text style={styles.actionBtnText}>
                   <Ionicons name="hardware-chip-outline" size={18} color="#fff" /> Evaluate ({submittedCount} submitted)
                 </Text>
-              </LinearGradient>
+              </BlurView>
             </TouchableOpacity>
           )}
           {gradedCount > 0 && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleAssignMarks}>
-              <LinearGradient colors={[COLORS.success, '#30C490']} style={styles.actionBtnGradient}>
+              <BlurView intensity={40} tint="light" style={[styles.actionBtnGradient, { backgroundColor: 'rgba(34,197,94,0.3)', borderWidth: 1.5, borderColor: 'rgba(34,197,94,0.6)' }]}>
                 <Text style={styles.actionBtnText}>
                   <Ionicons name="checkmark-circle-outline" size={18} color="#fff" /> Assign & Publish Marks ({gradedCount} pending)
                 </Text>
-              </LinearGradient>
+              </BlurView>
             </TouchableOpacity>
           )}
           {tests.length === 0 ? (
@@ -275,7 +276,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             </View>
           ) : (
             tests.map(test => (
-              <View key={test.id} style={styles.testCard}>
+              <BlurView intensity={30} tint="dark" key={test.id} style={styles.testCard}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.testStudentName}>{test.student_name}</Text>
                   {test.marks_obtained != null && (
@@ -287,7 +288,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
                     {test.is_forfeited ? 'FORFEITED' : test.status.toUpperCase()}
                   </Text>
                 </View>
-              </View>
+              </BlurView>
             ))
           )}
         </View>
@@ -304,7 +305,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             </View>
           ) : (
             students.map((s, idx) => (
-              <View key={s.id} style={styles.studentCard}>
+              <BlurView intensity={30} tint="dark" key={s.id} style={styles.studentCard}>
                 <View style={styles.studentAvatar}>
                   <Text style={styles.studentAvatarText}>{s.name[0].toUpperCase()}</Text>
                 </View>
@@ -313,7 +314,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
                   <Text style={styles.studentEmail}>{s.email}</Text>
                 </View>
                 <Text style={styles.studentNum}>#{idx + 1}</Text>
-              </View>
+              </BlurView>
             ))
           )}
         </View>
@@ -330,7 +331,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
             </View>
           ) : (
             results.map((r, idx) => (
-              <View key={r.test_id || idx} style={[styles.resultCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <BlurView intensity={30} tint="dark" key={r.test_id || idx} style={[styles.resultCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
                   <View style={styles.resultRank}>
                     <Text style={styles.rankText}>{idx + 1}</Text>
@@ -359,7 +360,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
                     <Text style={styles.viewResultText}>View Detailed Results →</Text>
                   </TouchableOpacity>
                 )}
-              </View>
+              </BlurView>
             ))
           )}
         </View>
@@ -370,7 +371,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.header}>
+      <BlurView intensity={30} tint="dark" style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
@@ -379,7 +380,7 @@ export default function ClassroomDetailScreen({ navigation, route }) {
           <Text style={styles.codeLabel}>Join Code: </Text>
           <Text style={styles.codeValue}>{classroom.join_code}</Text>
         </View>
-      </LinearGradient>
+      </BlurView>
 
       {/* Tabs */}
       <View style={styles.tabBar}>
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
   codeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   codeLabel: { fontSize: 13, color: COLORS.textMuted },
   codeValue: { fontSize: 14, fontWeight: '800', color: COLORS.primaryLight, letterSpacing: 2 },
-  tabBar: { flexDirection: 'row', backgroundColor: COLORS.bgCard, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  tabBar: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderBottomWidth: 1, borderBottomColor: COLORS.border },
   tab: { flex: 1, paddingVertical: SPACING.md, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
   tabText: { textAlign: 'center', fontSize: 16 },
@@ -450,26 +451,26 @@ const styles = StyleSheet.create({
   },
   generateBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '600' },
   noteCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgCard,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md, overflow: 'hidden',
   },
   noteTypeIcon: { fontSize: 28 },
   noteTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   noteType: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   testCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgCard,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border,
+    borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   testStudentName: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   testScore: { fontSize: 13, color: COLORS.success, marginTop: 2 },
   statusBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 4, borderRadius: RADIUS.sm },
   statusText: { fontSize: 11, fontWeight: '700' },
   studentCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgCard,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md, overflow: 'hidden',
   },
   studentAvatar: {
     width: 44, height: 44, borderRadius: 22,
@@ -481,9 +482,9 @@ const styles = StyleSheet.create({
   studentEmail: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   studentNum: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600' },
   resultCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgCard,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border, gap: SPACING.md, overflow: 'hidden',
   },
   resultRank: {
     width: 32, height: 32, borderRadius: 16,

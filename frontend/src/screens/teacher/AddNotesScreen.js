@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
-import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
@@ -172,7 +171,7 @@ export default function AddNotesScreen({ navigation, route }) {
   };
 
   return (
-    <LinearGradient colors={['#0F0F1A', '#1A0A2E', '#0F0F1A']} style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -291,7 +290,7 @@ export default function AddNotesScreen({ navigation, route }) {
             onPress={handleSubmit}
             disabled={loading}
           >
-            <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.gradientBtn}>
+            <BlurView intensity={40} tint="light" style={[styles.gradientBtn, { backgroundColor: 'rgba(108,99,255,0.3)', borderWidth: 1.5, borderColor: 'rgba(108,99,255,0.6)' }]}>
               {loading ? (
                 <View style={{ flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' }}>
                   <ActivityIndicator color="#fff" />
@@ -300,11 +299,11 @@ export default function AddNotesScreen({ navigation, route }) {
               ) : (
                 <Text style={styles.submitBtnText}>Upload Note</Text>
               )}
-            </LinearGradient>
+            </BlurView>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -337,9 +336,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, minHeight: 200, lineHeight: 22,
   },
   filePickerContainer: {
-    alignItems: 'center', backgroundColor: COLORS.bgCard,
+    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: RADIUS.lg, padding: SPACING.xl,
-    borderWidth: 1.5, borderColor: COLORS.border, borderStyle: 'dashed',
+    borderWidth: 1.5, borderColor: COLORS.border, borderStyle: 'dashed', overflow: 'hidden',
   },
   pickBtn: {
     backgroundColor: 'rgba(108,99,255,0.15)', borderRadius: RADIUS.md,

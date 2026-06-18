@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,7 +57,7 @@ export default function TestResultScreen({ navigation, route }) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Score Hero */}
-        <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.scoreHero}>
+        <BlurView intensity={30} tint="dark" style={styles.scoreHero}>
           <Text style={styles.backBtn} onPress={() => navigation.goBack()}>← Back</Text>
           <Ionicons name={scoreIcon} size={64} color={scoreColor} style={{ marginBottom: SPACING.md }} />
           <Text style={styles.heroTitle}>Your Results</Text>
@@ -65,16 +66,16 @@ export default function TestResultScreen({ navigation, route }) {
             <Text style={styles.scoreMarks}>{result?.marks_obtained}/{result?.total_marks}</Text>
           </View>
           <Text style={styles.scoreLabel}>marks obtained</Text>
-        </LinearGradient>
+        </BlurView>
 
         {/* AI Feedback */}
         {result?.ai_feedback && (
-          <View style={styles.feedbackCard}>
+          <BlurView intensity={30} tint="dark" style={styles.feedbackCard}>
             <Text style={styles.feedbackLabel}>
               <Ionicons name="hardware-chip-outline" size={14} /> AI Feedback
             </Text>
             <Text style={styles.feedbackText}>{result.ai_feedback}</Text>
-          </View>
+          </BlurView>
         )}
 
         {/* Question Breakdown */}
@@ -85,7 +86,7 @@ export default function TestResultScreen({ navigation, route }) {
           const correctOpts = q.correct_answers || [];
 
           return (
-            <View key={q.id} style={[styles.questionCard, isCorrect ? styles.questionCorrect : styles.questionWrong]}>
+            <BlurView intensity={30} tint="dark" key={q.id} style={[styles.questionCard, isCorrect ? styles.questionCorrect : styles.questionWrong]}>
               <View style={styles.qHeader}>
                 <View style={styles.qNum}>
                   <Text style={styles.qNumText}>{idx + 1}</Text>
@@ -120,7 +121,7 @@ export default function TestResultScreen({ navigation, route }) {
                   );
                 })}
               </View>
-            </View>
+            </BlurView>
           );
         })}
       </ScrollView>
@@ -145,17 +146,17 @@ const styles = StyleSheet.create({
   scoreMarks: { fontSize: 14, color: COLORS.textMuted, marginTop: 2 },
   scoreLabel: { fontSize: 13, color: COLORS.textMuted },
   feedbackCard: {
-    margin: SPACING.xl, backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg,
+    margin: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.lg,
     padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(108,99,255,0.3)',
-    borderLeftWidth: 4, borderLeftColor: COLORS.primary,
+    borderLeftWidth: 4, borderLeftColor: COLORS.primary, overflow: 'hidden',
   },
   feedbackLabel: { fontSize: 14, fontWeight: '700', color: COLORS.primaryLight, marginBottom: SPACING.sm },
   feedbackText: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 22 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary, paddingHorizontal: SPACING.xl, marginBottom: SPACING.md },
   questionCard: {
     marginHorizontal: SPACING.xl, marginBottom: SPACING.md,
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg,
-    padding: SPACING.md, borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.lg,
+    padding: SPACING.md, borderWidth: 1.5, overflow: 'hidden',
   },
   questionCorrect: { borderColor: COLORS.success + '44' },
   questionWrong: { borderColor: COLORS.error + '44' },

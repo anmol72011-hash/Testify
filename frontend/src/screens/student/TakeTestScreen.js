@@ -4,6 +4,7 @@ import {
   Alert, BackHandler, AppState, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 
@@ -254,7 +255,7 @@ export default function TakeTestScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       {/* Sticky Header */}
-      <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.header}>
+      <BlurView intensity={30} tint="dark" style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.testTitle} numberOfLines={1}>{test?.note_title}</Text>
           <View style={[styles.timerBox, timerWarning && styles.timerBoxWarning]}>
@@ -269,13 +270,13 @@ export default function TakeTestScreen({ navigation, route }) {
           </View>
           <Text style={styles.progressLabel}>{answeredCount}/{questions.length}</Text>
         </View>
-      </LinearGradient>
+      </BlurView>
 
       <ScrollView contentContainerStyle={styles.content}>
         {questions.map((q, idx) => {
           const selectedOptions = answers[q.id] || [];
           return (
-            <View key={q.id} style={styles.questionCard}>
+            <BlurView intensity={30} tint="dark" key={q.id} style={styles.questionCard}>
               <View style={styles.questionHeader}>
                 <View style={styles.questionNum}>
                   <Text style={styles.questionNumText}>{idx + 1}</Text>
@@ -322,7 +323,7 @@ export default function TakeTestScreen({ navigation, route }) {
                   );
                 })}
               </View>
-            </View>
+            </BlurView>
           );
         })}
 
@@ -333,9 +334,9 @@ export default function TakeTestScreen({ navigation, route }) {
           disabled={submitting}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={[COLORS.success, '#30C490']} style={styles.gradientBtn}>
+          <BlurView intensity={40} tint="light" style={[styles.gradientBtn, { backgroundColor: 'rgba(34,197,94,0.3)', borderWidth: 1.5, borderColor: 'rgba(34,197,94,0.6)' }]}>
             {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Test ✓</Text>}
-          </LinearGradient>
+          </BlurView>
         </TouchableOpacity>
       </ScrollView>
 
@@ -377,9 +378,9 @@ const styles = StyleSheet.create({
   progressLabel: { fontSize: 12, color: COLORS.textMuted, minWidth: 36, textAlign: 'right' },
   content: { padding: SPACING.xl, paddingBottom: 100 },
   questionCard: {
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.lg,
     padding: SPACING.md, marginBottom: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border,
+    borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   questionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
   questionNum: {
@@ -398,9 +399,9 @@ const styles = StyleSheet.create({
   optionBtn: {
     flexDirection: 'row', alignItems: 'center', padding: SPACING.sm,
     borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.border,
-    backgroundColor: COLORS.bgCardLight, gap: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.05)', gap: SPACING.sm,
   },
-  optionBtnSelected: { borderColor: COLORS.primary, backgroundColor: 'rgba(108,99,255,0.12)' },
+  optionBtnSelected: { borderColor: COLORS.primary, backgroundColor: 'rgba(108,99,255,0.15)' },
   optionCircle: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 2,
     borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center',

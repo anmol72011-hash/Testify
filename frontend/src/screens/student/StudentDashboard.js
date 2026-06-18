@@ -5,6 +5,7 @@ import {
   Alert, RefreshControl, StatusBar, Platform, LayoutAnimation, UIManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../styles/theme';
 import { apiRequest, clearAuth } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,7 +113,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* Header */}
-      <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.header}>
+      <BlurView intensity={30} tint="dark" style={styles.header}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
@@ -127,7 +128,7 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
             </TouchableOpacity>
           </View>
         </View>
-      </LinearGradient>
+      </BlurView>
 
       {loading ? (
         <View style={styles.centered}>
@@ -140,8 +141,8 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
         >
           {/* Classroom Card */}
           {classroom ? (
-            <View style={styles.classroomCard}>
-              <LinearGradient colors={['rgba(108,99,255,0.15)', 'rgba(108,99,255,0.05)']} style={styles.classroomGradient}>
+            <BlurView intensity={50} tint="dark" style={styles.classroomCard}>
+              <View style={styles.classroomGradient}>
                 <Ionicons name="business-outline" size={48} color={COLORS.textPrimary} style={{ marginBottom: SPACING.sm }} />
                 <Text style={styles.classroomName}>{classroom.name}</Text>
                 <Text style={styles.teacherName}>
@@ -155,10 +156,10 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                     <Ionicons name="exit-outline" size={14} color="#fff" /> Leave Classroom
                   </Text>
                 </TouchableOpacity>
-              </LinearGradient>
-            </View>
+              </View>
+            </BlurView>
           ) : (
-            <View style={styles.noClassroomCard}>
+            <BlurView intensity={50} tint="dark" style={styles.noClassroomCard}>
               <Ionicons name="key-outline" size={48} color={COLORS.textMuted} style={{ marginBottom: SPACING.md }} />
               <Text style={styles.noClassroomTitle}>Not in a classroom</Text>
               <Text style={styles.noClassroomSub}>Ask your teacher for the join code</Text>
@@ -166,11 +167,11 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                 style={styles.joinBtn}
                 onPress={() => navigation.navigate('JoinClassroom', { onJoined: fetchData })}
               >
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.joinBtnGradient}>
+                <BlurView intensity={40} tint="light" style={[styles.joinBtnGradient, { backgroundColor: 'rgba(108,99,255,0.3)', borderWidth: 1.5, borderColor: 'rgba(108,99,255,0.6)' }]}>
                   <Text style={styles.joinBtnText}>Join a Classroom</Text>
-                </LinearGradient>
+                </BlurView>
               </TouchableOpacity>
-            </View>
+            </BlurView>
           )}
 
           {/* Tests */}
@@ -187,8 +188,8 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                   const displayStatus = test.is_forfeited ? 'forfeited' : test.status;
                   const statusInfo = STATUS_INFO[displayStatus] || STATUS_INFO.pending;
                   return (
-                    <View key={test.id} style={styles.testCard}>
-                      <LinearGradient colors={['rgba(108,99,255,0.08)', 'transparent']} style={styles.testCardGradient}>
+                    <BlurView intensity={40} tint="dark" key={test.id} style={styles.testCard}>
+                      <View style={styles.testCardGradient}>
                         <View style={styles.testCardHeader}>
                           <Ionicons name={statusInfo.icon} size={28} color={statusInfo.color} />
                           <View style={[styles.statusPill, { backgroundColor: statusInfo.color + '22' }]}>
@@ -217,8 +218,8 @@ export default function StudentDashboard({ navigation, user, onLogout }) {
                             </LinearGradient>
                           </TouchableOpacity>
                         )}
-                      </LinearGradient>
-                    </View>
+                      </View>
+                    </BlurView>
                   );
                 })
               )}
@@ -249,7 +250,7 @@ const styles = StyleSheet.create({
   logoutIcon: { fontSize: 18, color: COLORS.textSecondary },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: SPACING.xl, paddingBottom: 120 },
-  classroomCard: { borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.xl, ...SHADOWS.medium },
+  classroomCard: { borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.05)' },
   classroomGradient: { padding: SPACING.xl, alignItems: 'center' },
   classroomEmoji: { fontSize: 48, marginBottom: SPACING.sm },
   classroomName: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
   },
   joinCodeText: { color: COLORS.primaryLight, fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   noClassroomCard: {
-    alignItems: 'center', backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl,
+    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.xl,
     padding: SPACING.xl, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.xl,
   },
   noClassroomTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SPACING.md, letterSpacing: 0.5 },
   noTests: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.md },
   noTestsText: { fontSize: 15, color: COLORS.textMuted },
-  testCard: { borderRadius: RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md, ...SHADOWS.small },
+  testCard: { borderRadius: RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md, backgroundColor: 'rgba(255,255,255,0.05)' },
   testCardGradient: { padding: SPACING.md },
   testCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   testEmoji: { fontSize: 28 },

@@ -8,9 +8,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-testify.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F0F1A"
+      "backgroundColor": "#1A0B2E"
     },
     "ios": {
       "supportsTablet": true

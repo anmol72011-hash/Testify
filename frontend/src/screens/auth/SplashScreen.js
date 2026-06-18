@@ -15,10 +15,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen({ navigation }) {
   return (
-    <LinearGradient
-      colors={['#0F0F1A', '#1A0A2E', '#0F0F1A']}
-      style={styles.container}
-    >
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* Background orbs */}
@@ -27,11 +24,7 @@ export default function SplashScreen({ navigation }) {
 
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <View style={styles.logoCircle}>
-          <Ionicons name="school-outline" size={56} color={COLORS.primaryLight} />
-        </View>
         <Text style={styles.appName}>TESTIFY</Text>
-        <Text style={styles.tagline}>AI-Powered Learning Platform</Text>
       </View>
 
       {/* Buttons */}
@@ -63,7 +56,7 @@ export default function SplashScreen({ navigation }) {
           AI-Powered Tests • Unique Per Student • Instant Grading
         </Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -114,10 +107,11 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   appName: {
-    fontSize: 42,
+    fontSize: 56,
     fontWeight: '900',
-    color: COLORS.textPrimary,
-    letterSpacing: 8,
+    color: '#FFFFFF',
+    letterSpacing: 10,
+    textAlign: 'center',
   },
   tagline: {
     fontSize: 14,

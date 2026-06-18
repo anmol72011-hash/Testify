@@ -11,20 +11,20 @@ export const COLORS = {
   info: '#4ECDC4',          // Teal
 
   // Backgrounds
-  bg: '#0F0F1A',            // Deep dark navy
-  bgCard: '#1A1A2E',        // Dark card
-  bgCardLight: '#252540',   // Slightly lighter card
-  bgInput: '#1E1E35',       // Input background
+  bg: 'transparent',        // Transparent to reveal AnimatedGradient
+  bgCard: 'rgba(255, 255, 255, 0.08)',        // Frosted glass card
+  bgCardLight: 'rgba(255, 255, 255, 0.12)',   // Lighter frosted glass
+  bgInput: 'rgba(0, 0, 0, 0.2)',              // Dark frosted inset
 
   // Text
   textPrimary: '#FFFFFF',
-  textSecondary: '#B0B0C8',
-  textMuted: '#6B6B8A',
+  textSecondary: '#E2E2E2',
+  textMuted: '#A0A0B0',
   textOnPrimary: '#FFFFFF',
 
   // Borders
-  border: '#2A2A45',
-  borderLight: '#3A3A5C',
+  border: 'rgba(255, 255, 255, 0.15)',
+  borderLight: 'rgba(255, 255, 255, 0.3)',
 };
 
 export const FONTS = {
@@ -80,7 +80,8 @@ export const globalStyles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.03)',
+    borderColor: COLORS.border,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 24,

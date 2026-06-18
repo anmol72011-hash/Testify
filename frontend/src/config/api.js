@@ -6,7 +6,7 @@ const getApiUrl = () => {
     return 'http://localhost:5000/api';
   }
   // For physical device / Expo Go use PC's local IP on Wi-Fi
-  return 'http://192.168.1.17:5000/api';
+  return 'http://10.195.134.80:5000/api';
 };
 
 export const API_BASE_URL = getApiUrl();

@@ -5,6 +5,7 @@ import {
   LayoutAnimation, UIManager
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -76,14 +77,16 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
 
   const renderClassroomCard = ({ item }) => (
     <TouchableOpacity
-      style={styles.card}
       onPress={() => navigation.navigate('ClassroomDetail', { classroom: item })}
       activeOpacity={0.8}
+      style={{ marginBottom: SPACING.md }}
     >
-      <LinearGradient
-        colors={['rgba(108,99,255,0.12)', 'rgba(108,99,255,0.04)']}
-        style={styles.cardGradient}
+      <BlurView
+        intensity={50}
+        tint="dark"
+        style={styles.card}
       >
+        <View style={styles.cardGradient}>
         <View style={styles.cardHeader}>
           <View style={styles.classIcon}>
             <Text style={{ fontSize: 24 }}>🏫</Text>
@@ -104,7 +107,8 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
             <Text style={styles.statLabel}>Notes</Text>
           </View>
         </View>
-      </LinearGradient>
+        </View>
+      </BlurView>
     </TouchableOpacity>
   );
 
@@ -113,7 +117,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* Header */}
-      <LinearGradient colors={[COLORS.bg, 'transparent']} style={styles.headerGradient}>
+      <BlurView intensity={30} tint="dark" style={styles.headerGradient}>
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
@@ -128,7 +132,7 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
             </TouchableOpacity>
           </View>
         </View>
-      </LinearGradient>
+      </BlurView>
 
       {loading ? (
         <View style={styles.centered}>
@@ -168,12 +172,13 @@ export default function TeacherDashboard({ navigation, user, onLogout }) {
         onPress={() => navigation.navigate('CreateClassroom', { onCreated: fetchClassrooms })}
         activeOpacity={0.85}
       >
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryDark]}
-          style={styles.fabGradient}
+        <BlurView
+          intensity={40}
+          tint="light"
+          style={[styles.fabGradient, { backgroundColor: 'rgba(108,99,255,0.3)', borderWidth: 1.5, borderColor: 'rgba(108,99,255,0.6)' }]}
         >
           <Text style={styles.fabText}>+ New Classroom</Text>
-        </LinearGradient>
+        </BlurView>
       </TouchableOpacity>
     </View>
   );
@@ -208,8 +213,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md, letterSpacing: 0.5,
   },
   card: {
-    borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.small,
+    borderRadius: RADIUS.lg, overflow: 'hidden',
+    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   cardGradient: { padding: SPACING.md },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },

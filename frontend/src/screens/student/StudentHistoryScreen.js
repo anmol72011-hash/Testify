@@ -5,6 +5,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { apiRequest } from '../../utils/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +51,7 @@ export default function StudentHistoryScreen({ navigation }) {
   }, [fetchHistory]);
 
   const renderItem = ({ item }) => (
-    <View style={styles.historyCard}>
+    <BlurView intensity={30} tint="dark" style={styles.historyCard}>
       <View style={styles.cardHeader}>
         <Text style={styles.testNote}>{item.note_title}</Text>
         <View style={[styles.statusBadge, { backgroundColor: item.is_forfeited ? COLORS.danger + '22' : COLORS.success + '22' }]}>
@@ -88,12 +89,12 @@ export default function StudentHistoryScreen({ navigation }) {
           <Text style={styles.viewResultText}>View Results →</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </BlurView>
   );
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1A0A2E', COLORS.bg]} style={styles.header}>
+      <BlurView intensity={30} tint="dark" style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
@@ -102,7 +103,7 @@ export default function StudentHistoryScreen({ navigation }) {
           <Text style={styles.title}>Test History</Text>
         </View>
         <Text style={styles.subTitle}>Archive of all your past tests.</Text>
-      </LinearGradient>
+      </BlurView>
 
       {loading ? (
         <View style={styles.centered}>
@@ -145,11 +146,11 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: SPACING.xl, paddingBottom: 100 },
   historyCard: {
-    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, padding: SPACING.md,
-    marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, padding: SPACING.md,
+    marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   dateHeader: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: 'transparent',
     paddingVertical: SPACING.sm,
     marginBottom: SPACING.sm,
     marginTop: SPACING.sm,
